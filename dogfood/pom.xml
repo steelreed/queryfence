@@ -61,7 +61,7 @@
 
     <!-- Added while adopting QueryFence; see src/test/resources/queryfence.yml -->
     <dependency>
-      <groupId>io.github.trestack</groupId>
+      <groupId>com.steelreed</groupId>
       <artifactId>queryfence-spring-test</artifactId>
       <version>${queryfence.version}</version>
       <scope>test</scope>

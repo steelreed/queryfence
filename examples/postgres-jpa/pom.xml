@@ -37,7 +37,7 @@
     </dependency>
     <!-- This is all it takes: the dependency and src/test/resources/queryfence.yml -->
     <dependency>
-      <groupId>io.github.trestack</groupId>
+      <groupId>com.steelreed</groupId>
       <artifactId>queryfence-spring-test</artifactId>
       <version>${queryfence.version}</version>
       <scope>test</scope>

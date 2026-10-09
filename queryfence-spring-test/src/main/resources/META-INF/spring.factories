@@ -1,4 +1,4 @@
 org.springframework.test.context.ContextCustomizerFactory=\
-dev.trestack.queryfence.spring.internal.QueryFenceContextCustomizerFactory
+com.steelreed.queryfence.spring.internal.QueryFenceContextCustomizerFactory
 org.springframework.test.context.TestExecutionListener=\
-dev.trestack.queryfence.spring.internal.QueryFenceTestExecutionListener
+com.steelreed.queryfence.spring.internal.QueryFenceTestExecutionListener

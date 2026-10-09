@@ -19,13 +19,13 @@ Hibernate `@TenantId`/filters, MyBatis-Plus tenant interceptor). It complements 
 
 ## Brand and coordinates
 
-- Umbrella brand: **Trestack** ("tre" = bamboo; tagline: *Backend tools that bend, not break.*)
-- GitHub: `github.com/trestack/queryfence`
-- Maven groupId: `io.github.trestack` (no domain yet; may relocate to `dev.trestack` later)
-- Java packages: `dev.trestack.queryfence.*` — keep these even though groupId differs,
-  so a future groupId relocation never breaks user imports
+- Umbrella brand: **Steelreed** (a reed bends in the storm and does not break; tagline:
+  *Backend tools that bend, not break.*). Formerly Trestack, renamed before 0.1.0.
+- GitHub: `github.com/steelreed/queryfence`
+- Maven groupId: `com.steelreed`, a namespace verified on Central through the `steelreed.com` domain
+- Java packages: `com.steelreed.queryfence.*`
 - License: Apache-2.0
-- Palette: Bamboo `#1F4D34`, Shoot `#B8C97A`, Ink `#15201A`, Paper `#F4F1E8`
+- Palette: Navy `#0B1D33`, Steel `#2B72C2`, Reed `#4FC3F7`, Mist `#F2F7FC`
 
 ## Modules
 
@@ -136,7 +136,7 @@ parameter value checks, custom rule DSL, UI.
   reported. They need Docker and only run with `-Pintegration` (CI job "Integration tests"), so the
   everyday `./mvnw verify` stays fast and Docker-free.
 - Application code in those tests lives in `com.acme.*`: QueryFence skips its own packages when it
-  resolves an origin, so fixtures in `dev.trestack.*` would resolve to the test framework instead.
+  resolves an origin, so fixtures in `com.steelreed.*` would resolve to the test framework instead.
 
 ## Conventions
 
@@ -169,7 +169,7 @@ parameter value checks, custom rule DSL, UI.
 ## Docs and adoption
 
 - Documentation site: MkDocs Material, `mkdocs.yml` + `docs/`, deployed to
-  `trestack.github.io/queryfence` by `.github/workflows/docs.yml` on every push to `main`.
+  `steelreed.github.io/queryfence` by `.github/workflows/docs.yml` on every push to `main`.
   `docs/llms.txt` is the summary for AI agents and must stay in sync with the rules.
 - `docs/ADOPTION.md` is the REPORT-mode path into an existing project;
   `tools/queryfence-summary.py` summarises `report.json` (no dependencies).
@@ -199,7 +199,7 @@ Releasing is the maintainer's job; agents never deploy, tag or touch GPG and Cen
 4. Phase 3 — JUnit 5 extension + Spring test support + reports
 5. Phase 4 — Testcontainers matrix + examples
 6. Phase 5 — dogfood in real projects in REPORT mode (target <5% false positives)
-7. Phase 6 — docs site (MkDocs Material, `trestack.github.io/queryfence`, include `llms.txt`)
+7. Phase 6 — docs site (MkDocs Material, `steelreed.github.io/queryfence`, include `llms.txt`)
 8. Phase 7 — release 0.1.0 (tag `v0.1.0`; workflow uploads with autoPublish=false)
 9. Phase 8 — launch post and community
 

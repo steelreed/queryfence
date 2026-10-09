@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>io.github.trestack</groupId>
+    <groupId>com.steelreed</groupId>
     <artifactId>queryfence-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
@@ -10,11 +10,11 @@
   <artifactId>queryfence-spring-test</artifactId>
   <name>QueryFence :: spring-test</name>
   <description>Wraps every DataSource bean of a Spring test context, with no code to write.</description>
-  <url>https://github.com/trestack/queryfence</url>
+  <url>https://github.com/steelreed/queryfence</url>
 
   <dependencies>
     <dependency>
-      <groupId>io.github.trestack</groupId>
+      <groupId>com.steelreed</groupId>
       <artifactId>queryfence-junit5</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -70,7 +70,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <Automatic-Module-Name>dev.trestack.queryfence.spring</Automatic-Module-Name>
+              <Automatic-Module-Name>com.steelreed.queryfence.spring</Automatic-Module-Name>
             </manifestEntries>
           </archive>
         </configuration>

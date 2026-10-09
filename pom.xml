@@ -2,14 +2,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.github.trestack</groupId>
+  <groupId>com.steelreed</groupId>
   <artifactId>queryfence-parent</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>QueryFence</name>
   <description>SQL policy testing for the JVM. Catch tenant leaks, unbounded updates and unsafe queries in your integration tests.</description>
-  <url child.project.url.inherit.append.path="false">https://github.com/trestack/queryfence</url>
+  <url child.project.url.inherit.append.path="false">https://github.com/steelreed/queryfence</url>
   <inceptionYear>2026</inceptionYear>
 
   <!-- ===== Metadata required by Maven Central ===== -->
@@ -39,14 +39,14 @@
     <module>queryfence-integration-tests</module>
   </modules>
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
-    <connection>scm:git:https://github.com/trestack/queryfence.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/trestack/queryfence.git</developerConnection>
+    <connection>scm:git:https://github.com/steelreed/queryfence.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/steelreed/queryfence.git</developerConnection>
     <tag>HEAD</tag>
-    <url>https://github.com/trestack/queryfence</url>
+    <url>https://github.com/steelreed/queryfence</url>
   </scm>
   <issueManagement>
     <system>GitHub Issues</system>
-    <url>https://github.com/trestack/queryfence/issues</url>
+    <url>https://github.com/steelreed/queryfence/issues</url>
   </issueManagement>
 
   <properties>
@@ -279,7 +279,7 @@
         <version>${jacoco-plugin.version}</version>
         <configuration>
           <includes>
-            <include>dev/trestack/**</include>
+            <include>com/steelreed/**</include>
           </includes>
         </configuration>
         <executions>

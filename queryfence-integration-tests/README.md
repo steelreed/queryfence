@@ -15,7 +15,7 @@ CI runs them on pull requests and on `main`.
 has both a query that leaks (QueryFence must report it) and a correct query (QueryFence must stay
 quiet). The policy runs in `REPORT` mode so each test can assert what was found.
 
-The application code lives in `com.acme.shop`, not in `dev.trestack.*`: QueryFence skips its own
+The application code lives in `com.acme.shop`, not in `com.steelreed.*`: QueryFence skips its own
 packages when it resolves an origin, so fixtures in its own package would be attributed to the test
 framework instead of to the code that wrote the query.
 
