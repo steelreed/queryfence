@@ -48,7 +48,7 @@ class ExtensionBehaviourTest {
   @BeforeEach
   void resetReport() {
     RunReport.instance().reset();
-    RunReport.instance().reportFile(reportDirectory.resolve("report.json"));
+    RunReport.instance().reportDirectory(reportDirectory);
   }
 
   @Test
@@ -141,6 +141,11 @@ class ExtensionBehaviourTest {
         .contains("\"method\":\"findByStatus\"")
         .contains("\"line\":" + OrderRepository.lastLine)
         .contains("\"test\":\"" + LeakingCase.class.getName() + "#listsOrders\"");
+    // report.json is the merge; this JVM's own report sits next to it, for the other forks
+    try (var files = Files.list(reportDirectory)) {
+      assertThat(files.map(file -> file.getFileName().toString()))
+          .anyMatch(name -> name.matches("report-\\d{8}T\\d{6}-\\d+\\.json"));
+    }
   }
 
   @Test

@@ -94,8 +94,16 @@ wrong. That is the one failure you may see in step 3, and it is a typo, not a le
 At the end of the run you get a summary per policy on the console and a file:
 
 ```
-target/queryfence/report.json
+target/queryfence/report.json      # Maven
+build/queryfence/report.json       # Gradle
 ```
+
+`report.json` holds every finding of the run, even when the tests ran in several JVMs (Surefire
+`forkCount`, Gradle `maxParallelForks`): each JVM also writes its own `report-<start>-<pid>.json`
+next to it, and the last one to finish merges them. Read `report.json`, and ignore the console
+summary of a single fork if you run several: it only covers that fork's tests. Under Gradle, clear
+`build/queryfence` before each run (see [the report files](configuration.md#the-report-files)),
+otherwise findings of earlier builds stay in the merge.
 
 In a multi-module build there is one report **per module that ran tests**, each under that module's
 own `target/`, so use the path of the module you are looking at
@@ -118,6 +126,10 @@ Then, from the module whose report you want to read:
 python3 queryfence-summary.py target/queryfence/report.json
 python3 queryfence-summary.py target/queryfence/report.json --triage
 ```
+
+With no argument it reads `target/queryfence` (or `build/queryfence`); it also accepts a report
+directory, and several paths at once for a multi-module build
+(`python3 queryfence-summary.py */target/queryfence --triage`).
 
 The first command groups the findings by rule, by table, by code and by origin. The second prints
 one entry per origin — class, method and line — which is the list you actually work through.

@@ -50,7 +50,7 @@ class SpringBootIntegrationTest {
   @BeforeEach
   void resetReport() {
     RunReport.instance().reset();
-    RunReport.instance().reportFile(reportDirectory.resolve("report.json"));
+    RunReport.instance().reportDirectory(reportDirectory);
   }
 
   @Test

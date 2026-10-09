@@ -594,7 +594,8 @@ layers read the origin from there.
                      FAIL: throw AssertionError listing violations
                      REPORT: log only
                                           │
- JVM / launcher session ends ──► target/queryfence/report.json
+ test plan ends ──► report-<start>-<pid>.json (this JVM)
+                 ──► report.json (merge of every JVM of the run, under a file lock)
 ```
 
 - **Capture window.** Statements executed by the test method body **and all code it calls**, on

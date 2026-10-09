@@ -74,6 +74,55 @@ or in Java, when you build the extension yourself:
 QueryFenceExtension.of(policy, CaptureSettings.ofBasePackages("com.acme"));
 ```
 
+## The report files
+
+At the end of the run QueryFence prints a summary on the console and writes JSON into a report
+directory:
+
+| Build | Directory |
+|---|---|
+| Maven | `target/queryfence/` |
+| Gradle (the module has `build.gradle` or `build.gradle.kts` and no `pom.xml`) | `build/queryfence/` |
+| anything else | `target/queryfence/` |
+| any build, when the `queryfence.reportDir` system property is set | that directory |
+
+Both build tools run tests from the module's own directory, so the default lands in that module's
+build output. To choose the directory yourself, set `queryfence.reportDir` as a system property of
+the test JVM:
+
+```kotlin
+// Gradle
+tasks.test { systemProperty("queryfence.reportDir", layout.buildDirectory.dir("qf").get().asFile.path) }
+```
+
+```xml
+<!-- Maven Surefire / Failsafe -->
+<systemPropertyVariables>
+  <queryfence.reportDir>${project.build.directory}/qf</queryfence.reportDir>
+</systemPropertyVariables>
+```
+
+The directory holds:
+
+- `report.json` — **the report to read**: every finding of the run.
+- `report-<start>-<pid>.json` — one file per test JVM.
+
+Builds often run tests in several JVMs (Surefire `forkCount > 1` or `reuseForks=false`, Gradle
+`maxParallelForks > 1` or `forkEvery`). Each JVM only sees its own tests, so each writes its own
+file, and then, holding a lock on the directory, merges the files of the current run into
+`report.json`. Whichever JVM finishes last writes the complete merge; no fork overwrites another's
+findings. The console summary each JVM prints covers that JVM's tests, and says how many JVMs
+`report.json` merges when there are several.
+
+A run is recognised by the process that launched the test JVMs (the Maven JVM, the Gradle daemon).
+Files of an earlier Maven build are left out of the merge and deleted, so a rerun without `clean`
+starts from a fresh report. The Gradle daemon outlives a build, so under Gradle the files of
+earlier builds run by the same daemon are merged too. Clear the directory before the tests run:
+
+```kotlin
+tasks.test { doFirst { delete(layout.buildDirectory.dir("queryfence")) } }
+```
+
 ## The emergency switch
 
 `queryfence.enabled=false` (a Spring property, or `-Dqueryfence.enabled=false` for the JUnit

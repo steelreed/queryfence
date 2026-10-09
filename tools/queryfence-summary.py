@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """Summarise a QueryFence report.
 
-    python3 tools/queryfence-summary.py target/queryfence/report.json
+    python3 tools/queryfence-summary.py
     python3 tools/queryfence-summary.py target/queryfence/report.json --by table
-    python3 tools/queryfence-summary.py target/queryfence/report.json --triage
+    python3 tools/queryfence-summary.py build/queryfence --triage
+    python3 tools/queryfence-summary.py */target/queryfence --triage
 
 Reads the JSON report a test run wrote and prints what is in it, grouped by rule, by table, by
 violation code or by the code that produced the SQL. `--triage` prints one line per distinct
 origin, which is the list you work through when adopting QueryFence on an existing project.
+
+Each test JVM writes its own `report-<start>-<pid>.json`, and `report.json` next to them is the
+merge of every JVM of the last run. A path can be that file or the directory holding it; with no
+path, `target/queryfence` (Maven) or `build/queryfence` (Gradle) is used. When a directory has no
+`report.json`, its per-JVM reports of the most recent run are merged here instead. Several paths
+(one per module) are summarised together.
 
 No dependencies: standard library only, Python 3.9+.
 """
@@ -20,14 +27,78 @@ import json
 import pathlib
 import sys
 
+MERGED = "report.json"
 
-def load(path: pathlib.Path) -> dict:
+
+def read_json(path: pathlib.Path) -> dict:
     try:
         return json.loads(path.read_text())
     except FileNotFoundError:
         sys.exit(f"No report at {path}. Run your tests first; QueryFence writes it at the end.")
     except json.JSONDecodeError as error:
         sys.exit(f"{path} is not valid JSON: {error}")
+
+
+def merge(reports: list[dict]) -> dict:
+    """Merges per-JVM reports the way QueryFence does when it writes report.json."""
+    merged: dict = {"disabled": False, "disabledReasons": [], "policies": []}
+    groups: dict[tuple, dict] = {}
+    for report in reports:
+        merged["disabled"] = merged["disabled"] or bool(report.get("disabled"))
+        for reason in report.get("disabledReasons", []):
+            if reason not in merged["disabledReasons"]:
+                merged["disabledReasons"].append(reason)
+        for group in report.get("policies", []):
+            key = (group.get("policy"), group.get("mode"))
+            summary = group.get("summary", {})
+            unmatched = group.get("unmatchedSuppressions", [])
+            if key not in groups:
+                groups[key] = {
+                    "policy": group.get("policy"),
+                    "mode": group.get("mode"),
+                    "onUnparseable": group.get("onUnparseable"),
+                    "summary": {"tests": 0, "statements": 0, "findings": 0},
+                    "findings": [],
+                    "unmatchedSuppressions": list(unmatched),
+                }
+                merged["policies"].append(groups[key])
+            else:
+                still = {(s.get("rule"), s.get("origin")) for s in unmatched}
+                groups[key]["unmatchedSuppressions"] = [
+                    s for s in groups[key]["unmatchedSuppressions"]
+                    if (s.get("rule"), s.get("origin")) in still
+                ]
+            target = groups[key]
+            target["summary"]["tests"] += summary.get("tests", 0)
+            target["summary"]["statements"] += summary.get("statements", 0)
+            target["findings"].extend(group.get("findings", []))
+            target["summary"]["findings"] = len(target["findings"])
+    return merged
+
+
+def load_directory(directory: pathlib.Path) -> dict:
+    if (directory / MERGED).exists():
+        return read_json(directory / MERGED)
+    files = sorted(directory.glob("report-*.json"), key=lambda path: path.stat().st_mtime)
+    if not files:
+        sys.exit(f"No report in {directory}. Run your tests first; QueryFence writes it at the end.")
+    reports = [(path.name, read_json(path)) for path in files]
+    run = reports[-1][1].get("run")  # the most recent run
+    current = [(name, report) for name, report in reports if report.get("run") == run]
+    merged = merge([report for _, report in current])
+    merged["reports"] = [name for name, _ in current]
+    return merged
+
+
+def load(path: pathlib.Path) -> dict:
+    return load_directory(path) if path.is_dir() else read_json(path)
+
+
+def default_path() -> pathlib.Path:
+    for candidate in (pathlib.Path("target/queryfence"), pathlib.Path("build/queryfence")):
+        if candidate.exists():
+            return candidate
+    return pathlib.Path("target/queryfence") / MERGED
 
 
 def findings(report: dict) -> list[dict]:
@@ -63,34 +134,44 @@ def counted(items: collections.Counter) -> list[tuple[str, int]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("report", type=pathlib.Path, nargs="?",
-                        default=pathlib.Path("target/queryfence/report.json"))
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("reports", type=pathlib.Path, nargs="*",
+                        help="report.json files or report directories (default: "
+                             "target/queryfence, else build/queryfence)")
     parser.add_argument("--by", choices=["rule", "table", "code", "origin", "all"], default="all")
     parser.add_argument("--triage", action="store_true",
                         help="one line per distinct origin, to work through when adopting")
     args = parser.parse_args()
 
-    report = load(args.report)
-    found = findings(report)
+    paths = args.reports or [default_path()]
+    loaded = [(path, load(path)) for path in paths]
+    found = [finding for _, report in loaded for finding in findings(report)]
 
-    if report.get("disabled"):
-        print("WARNING: QueryFence was disabled during this run")
-        for reason in report.get("disabledReasons", []):
-            print(f"  - {reason}")
+    for path, report in loaded:
+        prefix = f"{path}: " if len(loaded) > 1 else ""
+        if report.get("disabled"):
+            print(f"{prefix}WARNING: QueryFence was disabled during this run")
+            for reason in report.get("disabledReasons", []):
+                print(f"  - {reason}")
+        for unreadable in report.get("unreadableReports", []):
+            print(f"{prefix}WARNING: could not read {unreadable}; its findings are missing")
+        jvms = len(report.get("reports", []))
+        if jvms > 1:
+            print(f"{prefix}merged from {jvms} test JVM reports")
 
-    for group in report.get("policies", []):
-        summary = group.get("summary", {})
-        unparseable = group.get("onUnparseable")
-        modes = group.get("mode") if unparseable is None else f"{group.get('mode')}, unparseable {unparseable}"
-        print(
-            f"{group.get('policy')} [{modes}]: "
-            f"{summary.get('findings', 0)} findings, "
-            f"{summary.get('statements', 0)} statements, "
-            f"{summary.get('tests', 0)} tests"
-        )
-        for stale in group.get("unmatchedSuppressions", []):
-            print(f"  suppression matched nothing: {stale.get('rule')} at {stale.get('origin')}")
+        for group in report.get("policies", []):
+            summary = group.get("summary", {})
+            unparseable = group.get("onUnparseable")
+            modes = group.get("mode") if unparseable is None else f"{group.get('mode')}, unparseable {unparseable}"
+            print(
+                f"{prefix}{group.get('policy')} [{modes}]: "
+                f"{summary.get('findings', 0)} findings, "
+                f"{summary.get('statements', 0)} statements, "
+                f"{summary.get('tests', 0)} tests"
+            )
+            for stale in group.get("unmatchedSuppressions", []):
+                print(f"  suppression matched nothing: {stale.get('rule')} at {stale.get('origin')}")
 
     if not found:
         print("\nNothing to report: every statement satisfied the policy.")

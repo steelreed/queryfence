@@ -55,13 +55,21 @@ class, method and line that produced the query.
 
 - A console summary and `target/queryfence/report.json`, grouped per policy, each group with its own
   mode. Findings carry the rule, the code, the table, the message, the SQL and the origin.
+- Forked test JVMs lose nothing: each JVM writes its own `report-<start>-<pid>.json`, and merges the
+  reports of the current run into `report.json` under a file lock, so Surefire `forkCount > 1`,
+  `reuseForks=false`, Gradle `maxParallelForks > 1` and `forkEvery` all end with every finding in
+  `report.json`. Reports of an earlier Maven build are dropped; under Gradle, clear the directory
+  before the tests (see `docs/configuration.md`).
+- The report directory is `target/queryfence` under Maven, `build/queryfence` in a Gradle module,
+  or the `queryfence.reportDir` system property.
 - The summary is printed when the test plan ends, through a JUnit Platform `TestExecutionListener`,
   so it reaches the build log under Maven Surefire and Gradle instead of a stream that a JVM
   shutdown hook writes to after the runner has stopped listening.
 - Suppressions that matched nothing during the run are listed in the summary and in the report under
   `unmatchedSuppressions`: that is how an exception whose code has moved shows up.
 - `tools/queryfence-summary.py` summarises a report by rule, table, code and origin, with a
-  `--triage` listing for adoption. No dependencies.
+  `--triage` listing for adoption. It reads a `report.json` or a report directory (merging the
+  per-JVM reports itself when `report.json` is missing), several modules at once. No dependencies.
 
 **JUnit 5 (`queryfence-junit5`)**
 
