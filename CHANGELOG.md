@@ -82,6 +82,11 @@ class, method and line that produced the query.
 - `@QueryFencePolicy("other.yml")` selects another policy for a test class, and takes part in the
   Spring context cache key.
 
+**BOM (`queryfence-bom`)**
+
+- Aligns the versions of the QueryFence modules and nothing else: importing it never changes the
+  Spring, JUnit, JDBC driver or Testcontainers versions of your build.
+
 **Safety rails**
 
 - Suppressions live in the policy, keyed by `Class#method`, and a blank reason is a configuration
