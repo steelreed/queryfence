@@ -71,21 +71,23 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - getting-started.md
+  - Get started:
+      - Quick start: getting-started.md
       - Adopting in an existing project: ADOPTION.md
-  - How It Works:
-      - how-it-works.md
+  - Concepts:
+      - How QueryFence works: how-it-works.md
       - Design notes: DESIGN.md
-  - Rules: rules.md
-  - Integrations: integrations.md
-  - Configuration: configuration.md
-  - Suppressions: suppressions.md
-  - CI: ci.md
-  - Comparison: comparison.md
-  - FAQ: faq.md
-  - Changelog: changelog.md
-  - Releasing: RELEASE.md
+  - Reference:
+      - Rules: rules.md
+      - Integrations: integrations.md
+      - Configuration: configuration.md
+      - Suppressions: suppressions.md
+      - CI: ci.md
+  - More:
+      - Comparison: comparison.md
+      - FAQ: faq.md
+      - Changelog: changelog.md
+      - Releasing: RELEASE.md
 
 not_in_nav: |
   decisions/
