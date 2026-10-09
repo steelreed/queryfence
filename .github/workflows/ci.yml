@@ -107,7 +107,7 @@ jobs:
         run: ./mvnw -B -ntp -pl queryfence-core -Pmutation verify
       - name: Upload PIT report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pit-report
           path: queryfence-core/target/pit-reports
