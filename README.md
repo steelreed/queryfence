@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/steelreed/queryfence/actions/workflows/ci.yml"><img src="https://github.com/steelreed/queryfence/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://steelreed.github.io/queryfence/"><img src="https://img.shields.io/badge/docs-steelreed.github.io-2B72C2.svg" alt="Documentation"></a>
+  <a href="https://docs.steelreed.com/"><img src="https://img.shields.io/badge/docs-docs.steelreed.com-2B72C2.svg" alt="Documentation"></a>
 </p>
 
 > [!NOTE]
@@ -21,7 +21,7 @@
 > 5.10 to 6.1 and Spring Boot 3.3 to 4.1; nobody runs it on Spring Boot 4 in anger yet, so that
 > combination is tested but not promised.
 >
-> Full documentation: **<https://steelreed.github.io/queryfence/>**
+> Full documentation: **<https://docs.steelreed.com/>**
 
 ## The problem
 
@@ -317,7 +317,7 @@ Honest limits of QueryFence:
 
 | | |
 |---|---|
-| [Getting started, rules, configuration](https://steelreed.github.io/queryfence/) | the documentation site |
+| [Getting started, rules, configuration](https://docs.steelreed.com/) | the documentation site |
 | [docs/ADOPTION.md](docs/ADOPTION.md) | putting QueryFence into an existing project, in REPORT mode |
 | [docs/DESIGN.md](docs/DESIGN.md) | exact rule semantics, known bypasses and limits |
 | [tools/queryfence-summary.py](tools/queryfence-summary.py) | summarises `report.json` by rule, table, code and origin |

@@ -169,7 +169,7 @@ parameter value checks, custom rule DSL, UI.
 ## Docs and adoption
 
 - Documentation site: MkDocs Material, `mkdocs.yml` + `docs/`, deployed to
-  `steelreed.github.io/queryfence` by `.github/workflows/docs.yml` on every push to `main`.
+  `docs.steelreed.com` by `.github/workflows/docs.yml` on every push to `main`.
   `docs/llms.txt` is the summary for AI agents and must stay in sync with the rules.
 - `docs/ADOPTION.md` is the REPORT-mode path into an existing project;
   `tools/queryfence-summary.py` summarises `report.json` (no dependencies).
@@ -199,7 +199,7 @@ Releasing is the maintainer's job; agents never deploy, tag or touch GPG and Cen
 4. Phase 3 — JUnit 5 extension + Spring test support + reports
 5. Phase 4 — Testcontainers matrix + examples
 6. Phase 5 — dogfood in real projects in REPORT mode (target <5% false positives)
-7. Phase 6 — docs site (MkDocs Material, `steelreed.github.io/queryfence`, include `llms.txt`)
+7. Phase 6 — docs site (MkDocs Material, `docs.steelreed.com`, include `llms.txt`)
 8. Phase 7 — release 0.1.0 (tag `v0.1.0`; workflow uploads with autoPublish=false)
 9. Phase 8 — launch post and community
 

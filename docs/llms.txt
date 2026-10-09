@@ -8,7 +8,7 @@
 Status: 0.1.0, the first release. Coordinates: com.steelreed:queryfence-*:0.1.0.
 Apache-2.0. Java 17+. The API is small but not frozen before 1.0.
 Repository: https://github.com/steelreed/queryfence
-Docs: https://steelreed.github.io/queryfence/
+Docs: https://docs.steelreed.com/
 
 ## What it is not
 
@@ -82,7 +82,7 @@ UNPARSEABLE. Every message states the problem and the fix.
 Start with mode: REPORT, run the existing test suite, read target/queryfence/report.json, and
 triage each origin into real leak / false positive / documented suppression. Then switch to FAIL.
 Helper: `python3 tools/queryfence-summary.py target/queryfence/report.json --triage`.
-Full guide: https://steelreed.github.io/queryfence/ADOPTION/
+Full guide: https://docs.steelreed.com/ADOPTION/
 
 ## Capture window
 
