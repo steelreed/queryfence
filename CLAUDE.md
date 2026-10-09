@@ -35,7 +35,7 @@ Hibernate `@TenantId`/filters, MyBatis-Plus tenant interceptor). It complements 
 | `queryfence-jdbc` | Capture SQL via datasource-proxy, resolve origin via `StackWalker` | core, datasource-proxy |
 | `queryfence-report` | Collects findings per policy, console summary, `report.json` | jdbc |
 | `queryfence-junit5` | JUnit 5 extension, YAML policy loading | report, junit-jupiter-api (`provided`), snakeyaml |
-| `queryfence-spring-test` | Auto-wrap every `DataSource` bean in Spring test contexts; primary entry point for Spring Boot users | junit5, report, spring-test + spring-context + junit-jupiter-api (`provided`) |
+| `queryfence-spring-test` | Auto-wrap every `DataSource` bean in Spring test contexts; primary entry point for Spring Boot users | junit5, report, spring-test + spring-context + spring-aop + junit-jupiter-api (`provided`) |
 | `queryfence-bom` | Version alignment; lists every published module | — |
 | `queryfence-integration-tests` | Testcontainers matrix: {Hibernate, MyBatis, JdbcTemplate} × {MySQL, Postgres}; **not published** | everything, test scope |
 

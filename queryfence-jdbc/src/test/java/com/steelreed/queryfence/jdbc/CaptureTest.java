@@ -28,6 +28,7 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 
 /** Captures real statements from JdbcTemplate against an in-memory H2 database. */
 class CaptureTest {
@@ -265,5 +266,35 @@ class CaptureTest {
                 .queryForObject("SELECT COUNT(*) FROM purchase_order", Long.class))
         .isEqualTo(1L);
     assertThat(fenced.delegate()).isNotSameAs(fenced);
+  }
+
+  /** A pool, a proxy over it, and both fenced: one execution must be one statement, not two. */
+  @Test
+  void recordsAStatementOnceWhenFencedDataSourcesAreLayered() {
+    FencedDataSource outer = QueryFence.wrap(new LazyConnectionDataSourceProxy(fenced), POLICY);
+
+    new OrderRepository(new JdbcTemplate(outer)).findByStatus(1L, "OPEN");
+    int leakLine = OrderRepository.lastLine;
+
+    assertThat(outer.recorder().statements())
+        .singleElement()
+        .satisfies(statement -> assertThat(statement.origin().lineNumber()).isEqualTo(leakLine));
+    assertThat(outer.recorder().findings()).hasSize(1);
+    assertThat(fenced.recorder().statements()).isEmpty();
+  }
+
+  @Test
+  void theInnerLayerStillRecordsWhatReachesItDirectly() {
+    FencedDataSource outer = QueryFence.wrap(new LazyConnectionDataSourceProxy(fenced), POLICY);
+    OrderRepository throughOuter = new OrderRepository(new JdbcTemplate(outer));
+
+    throughOuter.insertFixedRow();
+    assertThatThrownBy(throughOuter::insertFixedRow).isInstanceOf(RuntimeException.class);
+    repository.findByStatus(1L, "OPEN");
+
+    assertThat(outer.recorder().statements()).hasSize(2);
+    assertThat(fenced.recorder().statements())
+        .singleElement()
+        .satisfies(statement -> assertThat(statement.sql()).contains("WHERE status = ?"));
   }
 }

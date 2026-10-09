@@ -43,6 +43,9 @@ class, method and line that produced the query.
 - `QueryFence.wrap(DataSource, Policy)` records every statement the driver executes, including each
   statement of a JDBC batch and statements that failed while executing, and passes the SQL on
   unchanged.
+- Fenced data sources can be layered: when one wraps another (directly or through a proxy or a
+  routing data source), each execution is recorded once, by the outermost fenced data source it
+  passes through, so findings and statement counts are not multiplied by the number of layers.
 - The origin — class, method, file, line — is resolved with `StackWalker`, skipping the JDK,
   drivers, ORMs, frameworks and QueryFence itself. `CaptureSettings.ofBasePackages("com.acme")`, or
   `basePackages:` in the policy file, makes it exact. A lambda is reported as the method that
@@ -79,6 +82,13 @@ class, method and line that produced the query.
 
 - Every `DataSource` bean of a Spring test context is wrapped automatically: the dependency plus a
   `queryfence.yml` is the whole setup, with no test code to change.
+- A wrapped bean keeps its class: it is replaced by a class-based proxy of its own type, so
+  `@Autowired HikariDataSource` (injection by the concrete pool type) keeps working. A bean whose
+  class cannot be subclassed (a final class, or a final `getConnection`) is still wrapped, but can
+  then only be injected as `DataSource`.
+- Layered data source beans — a `LazyConnectionDataSourceProxy`, `TransactionAwareDataSourceProxy`
+  or `AbstractRoutingDataSource` over a pool bean — are all wrapped, and each statement is still
+  recorded once per execution.
 - `@QueryFencePolicy("other.yml")` selects another policy for a test class, and takes part in the
   Spring context cache key.
 

@@ -7,6 +7,17 @@ through `spring.factories` wraps every `DataSource` bean of every test context
 (`@SpringBootTest`, `@DataJpaTest`, `@JdbcTest`, …); a `TestExecutionListener` checks what each
 test method executed. Without a policy on the classpath the dependency changes nothing.
 
+Each wrapped bean keeps its class: it is replaced by a class-based proxy of its own type that sends
+`getConnection` through the capture and every other method to the original bean, so
+`@Autowired HikariDataSource` and pool settings keep working. A bean whose class cannot be
+subclassed (a final class, or a final `getConnection`) is wrapped as a plain `DataSource`; inject it
+by the `DataSource` interface.
+
+Layered data sources are fine: when a `LazyConnectionDataSourceProxy`,
+`TransactionAwareDataSourceProxy` or `AbstractRoutingDataSource` bean sits over a pool bean, both
+are wrapped, so code using either one is checked, and a statement that passes through several
+layers is recorded once, by the outermost.
+
 Another policy for one test class:
 
 ```java

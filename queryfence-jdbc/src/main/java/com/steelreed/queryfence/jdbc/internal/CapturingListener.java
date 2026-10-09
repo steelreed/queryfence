@@ -25,8 +25,18 @@ import net.ttddyy.dsproxy.listener.QueryExecutionListener;
 /**
  * Records every statement the driver executes, including the statements of a JDBC batch. Recording
  * happens after execution, so a statement that failed is recorded too: it reached the database.
+ *
+ * <p>A statement is recorded once, by the outermost fenced data source it passes through. An
+ * application can layer data sources (a {@code LazyConnectionDataSourceProxy} or a routing data
+ * source over a pool), and when every layer is fenced, one execution goes through several capturing
+ * proxies on the same thread, nested inside each other. Each layer counts the executions in flight
+ * on its thread, and only the outermost one records, so findings and statement counts are not
+ * multiplied by the number of layers.
  */
 public final class CapturingListener implements QueryExecutionListener {
+
+  /** Executions in flight on this thread, across every fenced data source. */
+  private static final ThreadLocal<int[]> IN_FLIGHT = ThreadLocal.withInitial(() -> new int[1]);
 
   private final Consumer<CapturedStatement> sink;
   private final OriginResolver originResolver;
@@ -38,11 +48,18 @@ public final class CapturingListener implements QueryExecutionListener {
 
   @Override
   public void beforeQuery(ExecutionInfo execution, List<QueryInfo> queries) {
-    // Nothing: the origin is resolved after execution, from the same stack.
+    // The origin is resolved after execution, from the same stack; here we only count the nesting.
+    IN_FLIGHT.get()[0]++;
   }
 
   @Override
   public void afterQuery(ExecutionInfo execution, List<QueryInfo> queries) {
+    int[] inFlight = IN_FLIGHT.get();
+    inFlight[0]--;
+    if (inFlight[0] > 0) {
+      return; // an outer fenced data source is executing this statement and records it
+    }
+    IN_FLIGHT.remove();
     if (queries == null || queries.isEmpty()) {
       return;
     }

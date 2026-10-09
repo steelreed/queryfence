@@ -18,10 +18,14 @@ package com.steelreed.queryfence.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
+import com.acme.layered.LayeredApplication;
+import com.acme.layered.LayeredApplication.TenantRouting;
 import com.acme.shop.OrderRepository;
 import com.acme.shop.ShopApplication;
+import com.steelreed.queryfence.jdbc.FencedDataSource;
 import com.steelreed.queryfence.report.internal.Disabled;
 import com.steelreed.queryfence.report.internal.RunReport;
+import com.zaxxer.hikari.HikariDataSource;
 import java.nio.file.Path;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -33,6 +37,7 @@ import org.junit.platform.testkit.engine.EngineTestKit;
 import org.junit.platform.testkit.engine.Events;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * A real Spring Boot test: the user adds the dependency and {@code queryfence.yml}, writes no
@@ -100,6 +105,35 @@ class SpringBootIntegrationTest {
   @Test
   void wrapsEveryDataSourceBeanWithoutTestCode() {
     run(DataSourceBeanCase.class).assertStatistics(stats -> stats.started(1).succeeded(1));
+  }
+
+  /** Lazy proxy over routing data source over Hikari pool, all beans: one query, one statement. */
+  @Test
+  void recordsAStatementOnceHoweverTheDataSourceBeansAreLayered() {
+    Events tests = run(LayeredLeakCase.class);
+
+    tests.assertStatistics(stats -> stats.started(1).failed(1));
+    assertThat(failureMessage(tests))
+        .contains("QueryFence: 1 violation in " + LayeredLeakCase.class.getName());
+    assertThat(RunReport.instance().results())
+        .singleElement()
+        .satisfies(
+            results -> {
+              assertThat(results.statementCount()).isEqualTo(1);
+              assertThat(results.findings()).hasSize(1);
+            });
+  }
+
+  @Test
+  void keepsTheConcreteTypeOfEveryDataSourceBean() {
+    Events tests = run(ConcreteTypeCase.class);
+
+    assertThat(tests.failed().count()).as(() -> failureMessage(tests)).isZero();
+    tests.assertStatistics(stats -> stats.started(1).succeeded(1));
+
+    assertThat(RunReport.instance().results())
+        .singleElement()
+        .satisfies(results -> assertThat(results.statementCount()).isEqualTo(1));
   }
 
   @Test
@@ -205,6 +239,38 @@ class SpringBootIntegrationTest {
     @Test
     void theDataSourceBeanIsFenced() {
       assertThat(dataSource).isInstanceOf(com.steelreed.queryfence.jdbc.FencedDataSource.class);
+    }
+  }
+
+  @SpringBootTest(classes = LayeredApplication.class)
+  static class LayeredLeakCase {
+
+    @Autowired OrderRepository repository;
+
+    @Test
+    void listsOrders() {
+      repository.findByStatus(1L, "OPEN");
+    }
+  }
+
+  /** Injection by the concrete pool type must keep working, and the injected pool is fenced. */
+  @SpringBootTest(classes = LayeredApplication.class)
+  static class ConcreteTypeCase {
+
+    @Autowired HikariDataSource pool;
+    @Autowired TenantRouting routing;
+
+    @Test
+    void injectsTheBeanByItsOwnClass() throws Exception {
+      assertThat(pool.getJdbcUrl()).isEqualTo("jdbc:h2:mem:layered;DB_CLOSE_DELAY=-1");
+      assertThat(pool).isInstanceOf(FencedDataSource.class);
+      assertThat(routing).isInstanceOf(FencedDataSource.class);
+      assertThat(((FencedDataSource) pool).delegate()).isNotSameAs(pool);
+      assertThat(pool.unwrap(HikariDataSource.class)).isSameAs(pool);
+      assertThat(pool.isWrapperFor(FencedDataSource.class)).isTrue();
+
+      new JdbcTemplate(pool)
+          .queryForList("SELECT id FROM purchase_order WHERE tenant_id = ?", Long.class, 1L);
     }
   }
 }
