@@ -1,6 +1,6 @@
 site_name: QueryFence
 site_description: SQL policy testing for the JVM. Catch tenant leaks in your integration tests.
-site_url: https://steelreed.github.io/queryfence/
+site_url: https://docs.steelreed.com/
 repo_url: https://github.com/steelreed/queryfence
 repo_name: steelreed/queryfence
 edit_uri: edit/main/docs/
