@@ -10,14 +10,10 @@ theme:
   name: material
   logo: assets/queryfence.svg
   favicon: assets/queryfence.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/weather-night
-        name: Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: custom
@@ -25,6 +21,13 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
   features:
     - navigation.instant
     - navigation.sections
@@ -32,6 +35,21 @@ theme:
     - content.code.copy
     - content.action.edit
     - search.highlight
+    - search.suggest
+    - navigation.footer
+    - toc.follow
+    - content.code.annotate
+
+extra:
+  generator: false
+  homepage: https://steelreed.com
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/steelreed/queryfence
+      name: QueryFence on GitHub
+    - icon: material/web
+      link: https://steelreed.com
+      name: Steelreed
 
 extra_css:
   - assets/steelreed.css
@@ -39,6 +57,7 @@ extra_css:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
   - def_list
   - tables
   - toc:

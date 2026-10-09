@@ -1,9 +1,18 @@
+<div class="qf-hero" markdown>
+
+<span class="qf-pill">Part of Steelreed · 0.1.0 in preparation</span>
+
 # QueryFence
 
-**SQL policy testing for the JVM.** Declare a rule once — *every query touching `purchase_order`
-must filter by `tenant_id`* — and QueryFence checks every statement your integration tests actually
-send to the database, then fails the build on the ones that break it, pointing at the class, method
-and line that wrote the query.
+<p class="qf-lead"><strong>SQL policy testing for the JVM.</strong> Declare a rule once (<em>every
+query touching <code>purchase_order</code> must filter by <code>tenant_id</code></em>) and QueryFence
+checks every statement your integration tests actually send to the database, then fails the build on
+the ones that break it, pointing at the class, method and line that wrote the query.</p>
+
+[Get started](getting-started.md){ .md-button .md-button--primary }
+[View on GitHub](https://github.com/steelreed/queryfence){ .md-button }
+
+</div>
 
 !!! warning "Work in progress"
     Nothing is published to Maven Central yet and the API may still change before 0.1.0. CI tests
