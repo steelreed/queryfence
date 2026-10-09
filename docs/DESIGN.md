@@ -605,7 +605,7 @@ layers read the origin from there.
 - **Origin resolution.** `StackWalker` returns the first frame whose class is not infrastructure:
   the JDK, the JDBC drivers, `org.hibernate.`, `org.springframework.`, `org.apache.ibatis.`,
   `org.mybatis.`, `com.baomidou.`, `org.jooq.`, `com.zaxxer.`, `net.ttddyy.`,
-  `dev.trestack.queryfence.`, plus generated proxy classes (`$$`, `$Proxy`). Naming your own
+  `com.steelreed.queryfence.`, plus generated proxy classes (`$$`, `$Proxy`). Naming your own
   packages with `CaptureSettings.ofBasePackages("com.acme")` makes the result exact: the origin is
   then the first frame in those packages, or `Origin.unknown()` when the statement comes from
   somewhere else entirely.
@@ -623,7 +623,7 @@ layers read the origin from there.
 Everything else lives in `internal` packages.
 
 ```java
-// queryfence-core — dev.trestack.queryfence.core
+// queryfence-core — com.steelreed.queryfence.core
 Policy policy = Policy.builder()
     .requirePredicate("tenant-isolation", "tenant_id", "purchase_order", "order_item")
     .updateWithoutWhere("no-unbounded-update")
@@ -639,7 +639,7 @@ Policy policy = Policy.builder()
 SqlChecker checker = SqlChecker.of(policy);
 List<Violation> violations = checker.check("SELECT ...");   // no origin, no suppression
 
-// queryfence-junit5 — dev.trestack.queryfence.junit5
+// queryfence-junit5 — com.steelreed.queryfence.junit5
 @RegisterExtension
 static final QueryFenceExtension queryFence = QueryFenceExtension.fromClasspath("queryfence.yml");
 // or QueryFenceExtension.of(policy)

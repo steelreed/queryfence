@@ -1,10 +1,10 @@
 site_name: QueryFence
 site_description: SQL policy testing for the JVM. Catch tenant leaks in your integration tests.
-site_url: https://trestack.github.io/queryfence/
-repo_url: https://github.com/trestack/queryfence
-repo_name: trestack/queryfence
+site_url: https://steelreed.github.io/queryfence/
+repo_url: https://github.com/steelreed/queryfence
+repo_name: steelreed/queryfence
 edit_uri: edit/main/docs/
-copyright: Apache-2.0 &middot; part of Trestack
+copyright: Apache-2.0 &middot; part of Steelreed
 
 theme:
   name: material
@@ -34,7 +34,7 @@ theme:
     - search.highlight
 
 extra_css:
-  - assets/trestack.css
+  - assets/steelreed.css
 
 markdown_extensions:
   - admonition

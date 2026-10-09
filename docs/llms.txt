@@ -5,10 +5,10 @@
 > tests actually send to the database, and fails the build on the ones that break the rule,
 > pointing at the class, method and line that produced the query.
 
-Status: 0.1.0, the first release. Coordinates: io.github.trestack:queryfence-*:0.1.0.
+Status: 0.1.0, the first release. Coordinates: com.steelreed:queryfence-*:0.1.0.
 Apache-2.0. Java 17+. The API is small but not frozen before 1.0.
-Repository: https://github.com/trestack/queryfence
-Docs: https://trestack.github.io/queryfence/
+Repository: https://github.com/steelreed/queryfence
+Docs: https://steelreed.github.io/queryfence/
 
 ## What it is not
 
@@ -19,7 +19,7 @@ Docs: https://trestack.github.io/queryfence/
 
 ## Setup (Spring Boot)
 
-1. Test-scope dependency io.github.trestack:queryfence-spring-test.
+1. Test-scope dependency com.steelreed:queryfence-spring-test.
 2. src/test/resources/queryfence.yml (below).
 Nothing else: no annotation, no change to test code. Every DataSource bean of a Spring test context
 is wrapped automatically. Without Spring, use queryfence-junit5 with
@@ -82,7 +82,7 @@ UNPARSEABLE. Every message states the problem and the fix.
 Start with mode: REPORT, run the existing test suite, read target/queryfence/report.json, and
 triage each origin into real leak / false positive / documented suppression. Then switch to FAIL.
 Helper: `python3 tools/queryfence-summary.py target/queryfence/report.json --triage`.
-Full guide: https://trestack.github.io/queryfence/ADOPTION/
+Full guide: https://steelreed.github.io/queryfence/ADOPTION/
 
 ## Capture window
 

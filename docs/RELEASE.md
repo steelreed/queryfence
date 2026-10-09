@@ -27,8 +27,10 @@ gpg --armor --export-secret-keys <YOUR_KEY_ID> | pbcopy
 
 ### 2. A Central Portal account and token
 
-Register the `io.github.trestack` namespace at <https://central.sonatype.com/>, verify it against
-the GitHub organisation, then generate a user token (Account → Generate User Token).
+Register the `com.steelreed` namespace at <https://central.sonatype.com/> (Namespaces → Add
+namespace). Central verifies a domain namespace through DNS: add the TXT record it shows to
+`steelreed.com`, wait for the namespace to turn verified, then generate a user token (Account →
+Generate User Token).
 
 ### 3. GitHub secrets
 
@@ -115,7 +117,7 @@ Maven Central within about ten minutes, and in the search index within a few hou
 In an empty directory, with no local build:
 
 ```bash
-mvn dependency:get -Dartifact=io.github.trestack:queryfence-spring-test:0.1.0
+mvn dependency:get -Dartifact=com.steelreed:queryfence-spring-test:0.1.0
 ```
 
 Then the honest test — run an example against the released artifact:

@@ -9,7 +9,7 @@ add and no test code to change.
 
     ```xml
     <dependency>
-      <groupId>io.github.trestack</groupId>
+      <groupId>com.steelreed</groupId>
       <artifactId>queryfence-spring-test</artifactId>
       <version>0.1.0</version>
       <scope>test</scope>
@@ -20,7 +20,7 @@ add and no test code to change.
 
     ```xml
     <dependency>
-      <groupId>io.github.trestack</groupId>
+      <groupId>com.steelreed</groupId>
       <artifactId>queryfence-junit5</artifactId>
       <version>0.1.0</version>
       <scope>test</scope>

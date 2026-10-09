@@ -57,7 +57,7 @@ position. Other names we checked in the same position all parse: `value`, `key`,
 
 ### Why this matters to QueryFence
 
-[QueryFence](https://github.com/trestack/queryfence) parses the SQL an application's integration
+[QueryFence](https://github.com/steelreed/queryfence) parses the SQL an application's integration
 tests actually execute and checks it against a policy (for example: every statement touching
 `invoice` must filter by `tenant_id`). What we cannot parse we cannot clear, so a statement that
 does not parse is reported as a violation — fail closed. `invoice.number` is an ordinary column

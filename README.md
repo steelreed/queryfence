@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/trestack/queryfence/actions/workflows/ci.yml"><img src="https://github.com/trestack/queryfence/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/steelreed/queryfence/actions/workflows/ci.yml"><img src="https://github.com/steelreed/queryfence/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://trestack.github.io/queryfence/"><img src="https://img.shields.io/badge/docs-trestack.github.io-1F4D34.svg" alt="Documentation"></a>
+  <a href="https://steelreed.github.io/queryfence/"><img src="https://img.shields.io/badge/docs-steelreed.github.io-2B72C2.svg" alt="Documentation"></a>
 </p>
 
 > [!NOTE]
@@ -21,7 +21,7 @@
 > 5.10 to 6.1 and Spring Boot 3.3 to 4.1; nobody runs it on Spring Boot 4 in anger yet, so that
 > combination is tested but not promised.
 >
-> Full documentation: **<https://trestack.github.io/queryfence/>**
+> Full documentation: **<https://steelreed.github.io/queryfence/>**
 
 ## The problem
 
@@ -106,7 +106,7 @@ For a Spring Boot application:
 
 ```xml
 <dependency>
-  <groupId>io.github.trestack</groupId>
+  <groupId>com.steelreed</groupId>
   <artifactId>queryfence-spring-test</artifactId>
   <version>0.1.0</version>
   <scope>test</scope>
@@ -114,7 +114,7 @@ For a Spring Boot application:
 ```
 
 Without Spring, use `queryfence-junit5` instead (see [Plain JDBC](#plain-jdbc)).
-If you use several QueryFence modules, import `io.github.trestack:queryfence-bom` in
+If you use several QueryFence modules, import `com.steelreed:queryfence-bom` in
 `<dependencyManagement>` to keep their versions aligned.
 
 ## Quickstart (Spring Boot)
@@ -317,7 +317,7 @@ Honest limits of QueryFence:
 
 | | |
 |---|---|
-| [Getting started, rules, configuration](https://trestack.github.io/queryfence/) | the documentation site |
+| [Getting started, rules, configuration](https://steelreed.github.io/queryfence/) | the documentation site |
 | [docs/ADOPTION.md](docs/ADOPTION.md) | putting QueryFence into an existing project, in REPORT mode |
 | [docs/DESIGN.md](docs/DESIGN.md) | exact rule semantics, known bypasses and limits |
 | [tools/queryfence-summary.py](tools/queryfence-summary.py) | summarises `report.json` by rule, table, code and origin |
@@ -334,4 +334,4 @@ see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Apache License 2.0](LICENSE). Part of [Trestack](https://github.com/trestack): backend tools that bend, not break.
+[Apache License 2.0](LICENSE). Part of [Steelreed](https://github.com/steelreed): backend tools that bend, not break.

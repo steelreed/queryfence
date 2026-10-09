@@ -10,7 +10,7 @@ Budget: about an hour for steps 1 to 3, then as long as your triage list deserve
 
 ```xml
 <dependency>
-  <groupId>io.github.trestack</groupId>
+  <groupId>com.steelreed</groupId>
   <artifactId>queryfence-spring-test</artifactId>
   <version>0.1.0</version>
   <scope>test</scope>
@@ -109,7 +109,7 @@ The summariser is a single dependency-free script that lives in the QueryFence r
 the published artifacts. Fetch it once into your own repository:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/trestack/queryfence/main/tools/queryfence-summary.py
+curl -fsSLO https://raw.githubusercontent.com/steelreed/queryfence/main/tools/queryfence-summary.py
 ```
 
 Then, from the module whose report you want to read:

@@ -100,7 +100,7 @@ class, method and line that produced the query.
 
 ### Known limitations
 
-These are documented in [docs/DESIGN.md](https://github.com/trestack/queryfence/blob/main/docs/DESIGN.md) and measured against real frameworks in
+These are documented in [docs/DESIGN.md](https://github.com/steelreed/queryfence/blob/main/docs/DESIGN.md) and measured against real frameworks in
 `queryfence-integration-tests`.
 
 - **ORM associations.** A fetch join or a lazy association loads child rows by foreign key only
@@ -118,7 +118,7 @@ These are documented in [docs/DESIGN.md](https://github.com/trestack/queryfence/
   **an unqualified column named `number`** (`SELECT number FROM invoice`) does not parse, while
   `i.number` and `"number"` do. Qualify or quote the column, or suppress the origin with
   `rule: parser`; reported upstream in
-  [docs/upstream-issues](https://github.com/trestack/queryfence/tree/main/docs/upstream-issues).
+  [docs/upstream-issues](https://github.com/steelreed/queryfence/tree/main/docs/upstream-issues).
   The finding names the protected tables the statement mentions, so the blind spot is visible.
 - **Only what your tests run.** Untested code paths are unchecked, parameter *values* are not
   checked, views and stored procedures are opaque, and JUnit parallel execution is unsupported.
@@ -129,5 +129,5 @@ These are documented in [docs/DESIGN.md](https://github.com/trestack/queryfence/
 `*.internal` package carries no promise at all and may change in any release. Breaking changes to
 the public API will be listed here, and the API freezes at 1.0.
 
-[Unreleased]: https://github.com/trestack/queryfence/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/trestack/queryfence/releases/tag/v0.1.0
+[Unreleased]: https://github.com/steelreed/queryfence/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/steelreed/queryfence/releases/tag/v0.1.0

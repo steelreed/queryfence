@@ -1,1 +1,1 @@
-dev.trestack.queryfence.junit5.internal.ReportFlushListener
+com.steelreed.queryfence.junit5.internal.ReportFlushListener
