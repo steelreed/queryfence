@@ -199,6 +199,13 @@ console and to `target/queryfence/report.json`. Each finding is judged by the se
 it: `mode` for a rule, `onUnparseable` for a statement the parser could not read, so `mode: FAIL`
 with `onUnparseable: REPORT` fails on leaks and only records what it cannot check.
 
+> **Writes in `@Transactional` tests need a flush.** QueryFence checks the SQL that reaches JDBC.
+> `@DataJpaTest` (and any `@Transactional` test) rolls back at the end, and Hibernate does not
+> flush pending `INSERT`/`UPDATE`/`DELETE` statements before a rollback, so a `save()` or an entity
+> change that is never flushed is **never sent to the database and never checked**. Queries are
+> sent and checked. To check writes, call `entityManager.flush()` (or `TestEntityManager.flush()`)
+> in the test, or use `saveAndFlush()`. See [Integrations](docs/integrations.md#writes-in-transactional-tests).
+
 ### Plain JDBC
 
 Without Spring, add `queryfence-junit5`, register the extension and wrap the `DataSource` your

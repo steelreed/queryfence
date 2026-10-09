@@ -138,6 +138,11 @@ These are documented in [docs/DESIGN.md](https://github.com/steelreed/queryfence
   `rule: parser`; reported upstream in
   [docs/upstream-issues](https://github.com/steelreed/queryfence/tree/main/docs/upstream-issues).
   The finding names the protected tables the statement mentions, so the blind spot is visible.
+- **Unflushed writes in `@Transactional` tests.** QueryFence checks the SQL that reaches JDBC. A
+  `@DataJpaTest` (or any `@Transactional` test) rolls back at the end, and Hibernate does not flush
+  pending `INSERT`/`UPDATE`/`DELETE` statements before a rollback, so a `save()` or an entity change
+  that nothing flushes is never sent and never checked. Call `entityManager.flush()` (or
+  `TestEntityManager.flush()`) in the test, or use `saveAndFlush()`. Queries are not affected.
 - **Only what your tests run.** Untested code paths are unchecked, parameter *values* are not
   checked, views and stored procedures are opaque, and JUnit parallel execution is unsupported.
 

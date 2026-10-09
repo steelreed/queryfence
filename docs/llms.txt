@@ -90,6 +90,9 @@ Full guide: https://docs.steelreed.com/ADOPTION/
 
 Only statements executed by the test method and the code it calls, on any thread. Fixtures in
 @BeforeEach/@AfterEach, Spring context startup and migrations are outside it.
+Only SQL that reaches JDBC is checked: in a @Transactional test (@DataJpaTest by default) Hibernate
+never flushes pending INSERT/UPDATE/DELETE before the rollback, so unflushed writes are not checked.
+Call entityManager.flush() / TestEntityManager.flush() in the test, or use saveAndFlush().
 
 ## Switching it off
 
