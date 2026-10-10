@@ -43,6 +43,9 @@ class, method and line that produced the query.
 - `QueryFence.wrap(DataSource, Policy)` records every statement the driver executes, including each
   statement of a JDBC batch and statements that failed while executing, and passes the SQL on
   unchanged.
+- Fenced data sources can be layered: when one wraps another (directly or through a proxy or a
+  routing data source), each execution is recorded once, by the outermost fenced data source it
+  passes through, so findings and statement counts are not multiplied by the number of layers.
 - The origin — class, method, file, line — is resolved with `StackWalker`, skipping the JDK,
   drivers, ORMs, frameworks and QueryFence itself. `CaptureSettings.ofBasePackages("com.acme")`, or
   `basePackages:` in the policy file, makes it exact. A lambda is reported as the method that
@@ -52,13 +55,21 @@ class, method and line that produced the query.
 
 - A console summary and `target/queryfence/report.json`, grouped per policy, each group with its own
   mode. Findings carry the rule, the code, the table, the message, the SQL and the origin.
+- Forked test JVMs lose nothing: each JVM writes its own `report-<start>-<pid>.json`, and merges the
+  reports of the current run into `report.json` under a file lock, so Surefire `forkCount > 1`,
+  `reuseForks=false`, Gradle `maxParallelForks > 1` and `forkEvery` all end with every finding in
+  `report.json`. Reports of an earlier Maven build are dropped; under Gradle, clear the directory
+  before the tests (see `docs/configuration.md`).
+- The report directory is `target/queryfence` under Maven, `build/queryfence` in a Gradle module,
+  or the `queryfence.reportDir` system property.
 - The summary is printed when the test plan ends, through a JUnit Platform `TestExecutionListener`,
   so it reaches the build log under Maven Surefire and Gradle instead of a stream that a JVM
   shutdown hook writes to after the runner has stopped listening.
 - Suppressions that matched nothing during the run are listed in the summary and in the report under
   `unmatchedSuppressions`: that is how an exception whose code has moved shows up.
 - `tools/queryfence-summary.py` summarises a report by rule, table, code and origin, with a
-  `--triage` listing for adoption. No dependencies.
+  `--triage` listing for adoption. It reads a `report.json` or a report directory (merging the
+  per-JVM reports itself when `report.json` is missing), several modules at once. No dependencies.
 
 **JUnit 5 (`queryfence-junit5`)**
 
@@ -79,6 +90,13 @@ class, method and line that produced the query.
 
 - Every `DataSource` bean of a Spring test context is wrapped automatically: the dependency plus a
   `queryfence.yml` is the whole setup, with no test code to change.
+- A wrapped bean keeps its class: it is replaced by a class-based proxy of its own type, so
+  `@Autowired HikariDataSource` (injection by the concrete pool type) keeps working. A bean whose
+  class cannot be subclassed (a final class, or a final `getConnection`) is still wrapped, but can
+  then only be injected as `DataSource`.
+- Layered data source beans — a `LazyConnectionDataSourceProxy`, `TransactionAwareDataSourceProxy`
+  or `AbstractRoutingDataSource` over a pool bean — are all wrapped, and each statement is still
+  recorded once per execution.
 - `@QueryFencePolicy("other.yml")` selects another policy for a test class, and takes part in the
   Spring context cache key.
 
@@ -125,6 +143,11 @@ These are documented in [docs/DESIGN.md](https://github.com/steelreed/queryfence
   `rule: parser`; reported upstream in
   [docs/upstream-issues](https://github.com/steelreed/queryfence/tree/main/docs/upstream-issues).
   The finding names the protected tables the statement mentions, so the blind spot is visible.
+- **Unflushed writes in `@Transactional` tests.** QueryFence checks the SQL that reaches JDBC. A
+  `@DataJpaTest` (or any `@Transactional` test) rolls back at the end, and Hibernate does not flush
+  pending `INSERT`/`UPDATE`/`DELETE` statements before a rollback, so a `save()` or an entity change
+  that nothing flushes is never sent and never checked. Call `entityManager.flush()` (or
+  `TestEntityManager.flush()`) in the test, or use `saveAndFlush()`. Queries are not affected.
 - **Only what your tests run.** Untested code paths are unchecked, parameter *values* are not
   checked, views and stored procedures are opaque, and JUnit parallel execution is unsupported.
 

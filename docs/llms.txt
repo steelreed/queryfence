@@ -82,12 +82,17 @@ UNPARSEABLE. Every message states the problem and the fix.
 Start with mode: REPORT, run the existing test suite, read target/queryfence/report.json, and
 triage each origin into real leak / false positive / documented suppression. Then switch to FAIL.
 Helper: `python3 tools/queryfence-summary.py target/queryfence/report.json --triage`.
+Gradle writes to build/queryfence/ instead (or -Dqueryfence.reportDir). With forked test JVMs each
+JVM writes report-<start>-<pid>.json and report.json is their merge: read report.json.
 Full guide: https://docs.steelreed.com/ADOPTION/
 
 ## Capture window
 
 Only statements executed by the test method and the code it calls, on any thread. Fixtures in
 @BeforeEach/@AfterEach, Spring context startup and migrations are outside it.
+Only SQL that reaches JDBC is checked: in a @Transactional test (@DataJpaTest by default) Hibernate
+never flushes pending INSERT/UPDATE/DELETE before the rollback, so unflushed writes are not checked.
+Call entityManager.flush() / TestEntityManager.flush() in the test, or use saveAndFlush().
 
 ## Switching it off
 

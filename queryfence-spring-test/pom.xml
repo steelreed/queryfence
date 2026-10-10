@@ -30,6 +30,12 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <!-- class-based proxies keep a DataSource bean's concrete type; spring-context needs it anyway -->
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-aop</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <scope>provided</scope>

@@ -17,6 +17,8 @@ package com.steelreed.queryfence.report.internal;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
+import java.util.Map;
 
 /** A tiny JSON writer, so the report needs no JSON library. */
 final class Json {
@@ -81,6 +83,26 @@ final class Json {
   Json field(String name, boolean value) {
     key(name);
     out.append(value);
+    return this;
+  }
+
+  /**
+   * Writes a value read by {@link JsonReader}: a map, a list, a string, a number, a boolean or
+   * null.
+   */
+  Json any(Object value) {
+    if (value instanceof Map<?, ?> map) {
+      object();
+      map.forEach((name, item) -> key(name.toString()).any(item));
+      return end();
+    }
+    if (value instanceof List<?> list) {
+      array();
+      list.forEach(this::any);
+      return end();
+    }
+    beforeValue();
+    out.append(value instanceof String text ? quote(text) : String.valueOf(value));
     return this;
   }
 

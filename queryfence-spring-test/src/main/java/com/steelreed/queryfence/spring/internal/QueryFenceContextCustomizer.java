@@ -85,7 +85,10 @@ final class QueryFenceContextCustomizer implements ContextCustomizer {
       }
       FencedDataSource fenced = QueryFence.wrap(dataSource, policy, captureSettings);
       dataSources.add(fenced);
-      return fenced;
+      // Same class as the bean, so injection by the concrete type (HikariDataSource) still works.
+      // A bean that wraps another DataSource bean is fenced too; the capture records each
+      // execution once, in the outermost layer, so layering does not double the findings.
+      return FencedBeans.replace(dataSource, fenced);
     }
   }
 }

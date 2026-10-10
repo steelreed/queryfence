@@ -34,6 +34,11 @@ import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
  * }</pre>
  *
  * <p>The SQL reaches the driver unchanged; QueryFence never rewrites or blocks a statement.
+ *
+ * <p>Fenced data sources can be layered: when a fenced data source wraps another one (directly, or
+ * through a proxy or routing data source), a statement is recorded once, by the outermost fenced
+ * data source it passes through on its thread. The inner one records the statements that reach it
+ * directly.
  */
 public final class QueryFence {
 

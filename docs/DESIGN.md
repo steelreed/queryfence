@@ -565,7 +565,7 @@ For `AMBIGUOUS_COLUMN`, `{tables}` lists the unfenced occurrences of the block a
 | `queryfence-core` | Policy model, parser adapter, rule engine, violation model | JSqlParser only |
 | `queryfence-jdbc` | `DataSource` proxy, statement capture, origin resolution | core, datasource-proxy |
 | `queryfence-junit5` | JUnit 5 extension, YAML policy loading, console and JSON reports | jdbc, junit-jupiter-api, snakeyaml |
-| `queryfence-spring-test` | Wrap every `DataSource` bean in Spring test contexts; zero-code setup | junit5, spring-test and spring-context (`provided`) |
+| `queryfence-spring-test` | Wrap every `DataSource` bean in Spring test contexts; zero-code setup | junit5, spring-test, spring-context and spring-aop (`provided`) |
 | `queryfence-bom` | Version alignment | — |
 
 `queryfence-core` never depends on JDBC, JUnit, Spring or YAML, so the engine can be reused later
@@ -594,7 +594,8 @@ layers read the origin from there.
                      FAIL: throw AssertionError listing violations
                      REPORT: log only
                                           │
- JVM / launcher session ends ──► target/queryfence/report.json
+ test plan ends ──► report-<start>-<pid>.json (this JVM)
+                 ──► report.json (merge of every JVM of the run, under a file lock)
 ```
 
 - **Capture window.** Statements executed by the test method body **and all code it calls**, on
@@ -609,6 +610,13 @@ layers read the origin from there.
   packages with `CaptureSettings.ofBasePackages("com.acme")` makes the result exact: the origin is
   then the first frame in those packages, or `Origin.unknown()` when the statement comes from
   somewhere else entirely.
+- **Layered data sources.** When a fenced data source wraps another fenced one (a lazy, transaction
+  aware or routing proxy over a pool, all of them beans), one execution passes through several
+  capturing proxies on the same thread. Each counts the executions in flight on its thread, and
+  only the outermost records, so a statement is checked and counted once. In Spring test contexts
+  each `DataSource` bean is replaced by a class-based proxy of its own class (also a
+  `FencedDataSource`), so injection by the concrete type keeps working; a class that cannot be
+  subclassed falls back to an interface proxy.
 - **What capture sees.** Every statement the driver executes, including each statement of a JDBC
   batch (with its batch size) and statements that threw while executing. A statement the driver
   rejects while *preparing* it never reaches the listener, so QueryFence cannot check it — that

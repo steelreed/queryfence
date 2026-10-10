@@ -38,6 +38,15 @@ read or write rows (`SET`, `SHOW`, `FLUSH`, DDL, `CALL`) are ignored when they d
 
 Yes. Anything that ends up as SQL on a `DataSource` is checked, whoever generated it.
 
+### My `@DataJpaTest` saves an entity that breaks the policy, and nothing is reported.
+
+QueryFence checks SQL that reaches JDBC. In a `@Transactional` test — `@DataJpaTest` is one by
+default — the transaction is rolled back at the end, and Hibernate does not flush pending
+`INSERT`/`UPDATE`/`DELETE` statements before a rollback, so the write never reaches the database and
+is never checked. Flush inside the test: `entityManager.flush()` (or `TestEntityManager.flush()`),
+or `saveAndFlush()`. Queries are sent as they run and are checked either way. See
+[Integrations](integrations.md#writes-in-transactional-tests).
+
 ### Does it slow my tests down?
 
 Parsing happens once per distinct SQL string and is cached. The integration suite checks tens of
@@ -50,7 +59,10 @@ mode possible later, but nothing ships for it yet.
 
 ### What about parallel test execution?
 
-Unsupported in 0.1: statements are attributed to the running test by time window.
+JUnit parallel execution *inside* one JVM is unsupported in 0.1: statements are attributed to the
+running test by time window. Running tests in several JVMs (Surefire `forkCount`, Gradle
+`maxParallelForks`) is fine: each JVM checks its own tests, and `report.json` merges their reports
+(see [the report files](configuration.md#the-report-files)).
 
 ### Which JUnit and Spring versions?
 

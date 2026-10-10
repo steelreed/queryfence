@@ -11,7 +11,10 @@ A violation fails the test that executed the query, so the build fails where the
 
 ## The report
 
-Every run writes `target/queryfence/report.json`, grouped per policy:
+Every run writes `target/queryfence/report.json` (`build/queryfence/report.json` under Gradle),
+grouped per policy. When the tests run in several JVMs, each JVM writes its own
+`report-<start>-<pid>.json` next to it and `report.json` is their merge, so forks lose nothing;
+see [the report files](configuration.md#the-report-files).
 
 ```json
 {
@@ -49,7 +52,9 @@ Keep it as a build artifact:
   uses: actions/upload-artifact@v4
   with:
     name: queryfence-report
-    path: "**/target/queryfence/report.json"
+    path: |
+      **/target/queryfence/
+      **/build/queryfence/
 ```
 
 ## Summarising it

@@ -21,8 +21,6 @@ import com.steelreed.queryfence.core.Suppression;
 import com.steelreed.queryfence.jdbc.QueryRecorder.Finding;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,8 +32,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Collects what every test found and, once the test JVM ends, prints a summary and writes {@code
- * target/queryfence/report.json}.
+ * Collects what every test found and, when the test plan ends, prints a summary and writes the
+ * report: this JVM's own {@code report-<start>-<pid>.json}, merged with the reports of the other
+ * test JVMs of the run into {@code report.json} (see {@link ReportFiles}). The directory is {@code
+ * target/queryfence}, {@code build/queryfence} in a Gradle project, or the {@code
+ * queryfence.reportDir} system property.
  *
  * <p>Results are grouped by policy: one run can use several policies (a strict one for most tests,
  * a reporting one for a legacy package), and each group carries its own mode.
@@ -107,7 +108,9 @@ public final class RunReport {
   private final AtomicBoolean hookRegistered = new AtomicBoolean();
   private boolean dirty;
   private final Set<String> disabledReasons = new LinkedHashSet<>();
-  private volatile Path reportFile = Path.of("target", "queryfence", "report.json");
+  private volatile Path reportDirectory = ReportFiles.defaultDirectory();
+  private final String ownFileName = ReportFiles.ownFileName();
+  private final String run = ReportFiles.currentRun();
 
   private RunReport() {}
 
@@ -122,14 +125,19 @@ public final class RunReport {
     }
   }
 
-  /** Where the report is written; {@code target/queryfence/report.json} by default. */
+  /** The merged report of the run; {@code target/queryfence/report.json} by default. */
   public Path reportFile() {
-    return reportFile;
+    return reportDirectory.resolve(ReportFiles.MERGED);
   }
 
-  /** Writes the report somewhere else; mainly for QueryFence's own tests. */
-  public void reportFile(Path reportFile) {
-    this.reportFile = reportFile;
+  /** The directory the report files are written to. */
+  public Path reportDirectory() {
+    return reportDirectory;
+  }
+
+  /** Writes the reports somewhere else; mainly for QueryFence's own tests. */
+  public void reportDirectory(Path reportDirectory) {
+    this.reportDirectory = reportDirectory;
   }
 
   /** Records what one test executed under one policy. */
@@ -185,7 +193,18 @@ public final class RunReport {
     }
     dirty = false;
     System.out.println(summary());
-    write();
+    ReportFiles.Merged merged = write();
+    if (merged.reports() > 1) {
+      System.out.println(
+          "\nQueryFence: "
+              + reportFile()
+              + " merges the reports of "
+              + merged.reports()
+              + " test JVMs: "
+              + merged.findings()
+              + (merged.findings() == 1 ? " violation" : " violations")
+              + " in total.");
+    }
   }
 
   public synchronized String summary() {
@@ -228,20 +247,17 @@ public final class RunReport {
       }
     }
     if (!findings().isEmpty()) {
-      sb.append("\n\nFull report: ").append(reportFile);
+      sb.append("\n\nFull report: ").append(reportFile());
     }
     return sb.toString();
   }
 
-  private void write() {
+  private ReportFiles.Merged write() {
     try {
-      Path parent = reportFile.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      Files.writeString(reportFile, json(), StandardCharsets.UTF_8);
+      return ReportFiles.writeAndMerge(reportDirectory, ownFileName, json(), run);
     } catch (IOException e) {
-      throw new UncheckedIOException("Could not write the QueryFence report to " + reportFile, e);
+      throw new UncheckedIOException(
+          "Could not write the QueryFence report to " + reportDirectory, e);
     }
   }
 
@@ -249,6 +265,8 @@ public final class RunReport {
     Json json = new Json();
     json.object();
     json.field("generatedAt", Instant.now().toString());
+    json.field("startedAt", ReportFiles.jvmStartedAt());
+    json.field("run", run);
     json.field("disabled", !disabledReasons.isEmpty());
     json.key("disabledReasons").array();
     disabledReasons.forEach(json::value);
