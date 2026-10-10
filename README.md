@@ -343,4 +343,4 @@ see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Apache License 2.0](LICENSE). Part of [Steelreed](https://steelreed.com): backend tools that bend, not break.
+[Apache License 2.0](LICENSE). Part of [Steelreed](https://steelreed.com): open-source tools for the parts of your backend nobody is watching.
