@@ -11,6 +11,10 @@
   <description>SQL policy testing for the JVM. Catch tenant leaks, unbounded updates and unsafe queries in your integration tests.</description>
   <url child.project.url.inherit.append.path="false">https://github.com/steelreed/queryfence</url>
   <inceptionYear>2026</inceptionYear>
+  <organization>
+    <name>Steelreed</name>
+    <url>https://steelreed.com</url>
+  </organization>
 
   <!-- ===== Metadata required by Maven Central ===== -->
   <licenses>

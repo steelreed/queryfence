@@ -13,6 +13,7 @@
   <a href="https://github.com/steelreed/queryfence/actions/workflows/ci.yml"><img src="https://github.com/steelreed/queryfence/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
   <a href="https://docs.steelreed.com/"><img src="https://img.shields.io/badge/docs-docs.steelreed.com-2B72C2.svg" alt="Documentation"></a>
+  <a href="https://steelreed.com/queryfence/"><img src="https://img.shields.io/badge/website-steelreed.com-0B1D33.svg" alt="Website"></a>
 </p>
 
 > [!NOTE]
@@ -334,4 +335,4 @@ see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Apache License 2.0](LICENSE). Part of [Steelreed](https://github.com/steelreed): backend tools that bend, not break.
+[Apache License 2.0](LICENSE). Part of [Steelreed](https://steelreed.com): backend tools that bend, not break.
