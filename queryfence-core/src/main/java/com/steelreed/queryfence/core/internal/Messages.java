@@ -122,16 +122,41 @@ final class Messages {
         + " with a reason.";
   }
 
+  static String unanalysedOccurrence(String table, String alias) {
+    return display(table, alias)
+        + " appears in a part of this statement that QueryFence does not analyse yet, so its"
+        + " tenant filter cannot be verified. Rewrite the statement to read it in FROM, a JOIN or a"
+        + " WHERE subquery, or suppress its origin with a reason.";
+  }
+
   static String unparseable() {
-    return "QueryFence could not parse this statement, so it cannot prove it safe. Report the SQL"
-        + " to QueryFence, or set onUnparseable: REPORT to only report it.";
+    return couldNot("parse") + REPORT_IT;
   }
 
   static String unparseableMentioning(String table) {
-    return "QueryFence could not parse this statement, so it cannot prove it safe. It mentions "
+    return couldNot("parse") + mentioning(table) + REPORT_IT;
+  }
+
+  /** The statement parsed, but analysing it failed: reported like a statement that did not. */
+  static String unanalysable() {
+    return couldNot("analyse") + REPORT_IT;
+  }
+
+  static String unanalysableMentioning(String table) {
+    return couldNot("analyse") + mentioning(table) + REPORT_IT;
+  }
+
+  private static final String REPORT_IT =
+      " Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.";
+
+  private static String couldNot(String verb) {
+    return "QueryFence could not " + verb + " this statement, so it cannot prove it safe.";
+  }
+
+  private static String mentioning(String table) {
+    return " It mentions "
         + table
-        + ", which stays unverified here: a missing filter on that table would go unnoticed."
-        + " Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.";
+        + ", which stays unverified here: a missing filter on that table would go unnoticed.";
   }
 
   private static String prefix(UnboundedWriteRule.Kind kind, String table, String alias) {

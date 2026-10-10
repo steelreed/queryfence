@@ -241,3 +241,341 @@ cases:
         alias: null
         message: 'QueryFence could not parse this statement, so it cannot prove it safe. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
     reason: 'A table name inside a string literal is text, not a table reference.'
+
+  - id: statements-021
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SET search_path TO app; SELECT * FROM purchase_order
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'A string that does not parse as a whole is split into statements: an ignorable first statement does not hide the ones after it.'
+
+  - id: statements-022
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SET search_path TO app; SELECT * FROM purchase_order WHERE tenant_id = ?
+    expect: []
+    reason: 'After splitting, the ignorable statement is ignored and the fenced statement passes.'
+
+  - id: statements-023
+    clause: [RP-13, DW-1]
+    policy: default
+    dialect: postgres
+    sql: |-
+      BEGIN; DELETE FROM purchase_order; COMMIT
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+      - rule: no-unbounded-delete
+        code: NO_WHERE
+        table: purchase_order
+        alias: null
+        message: 'DELETE from purchase_order has no WHERE clause and removes every row. Add a WHERE clause that selects only the intended rows.'
+    reason: 'Transaction control around a statement does not hide it.'
+
+  - id: statements-024
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      -- export
+      SET search_path TO app;
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?;
+      SELECT * FROM invoice
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: null
+        message: 'invoice has no tenant filter. Add "invoice.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Every statement after the split is checked, not only the first one that matters.'
+
+  - id: statements-025
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SET search_path TO app; SET statement_timeout TO 0
+    expect: []
+    reason: 'A string of session statements the parser rejects stays ignored once split.'
+
+  - id: statements-026
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SET application_name TO 'export; SELECT * FROM purchase_order'
+    expect: []
+    reason: 'A semicolon or a query inside a string literal neither splits the statement nor makes it read rows.'
+
+  - id: statements-027
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      COPY (SELECT * FROM purchase_order) TO STDOUT
+    expect:
+      - rule: parser
+        code: UNPARSEABLE
+        table: purchase_order
+        alias: null
+        message: 'QueryFence could not parse this statement, so it cannot prove it safe. It mentions purchase_order, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
+    reason: 'COPY reads rows, so an unparseable COPY stays fail closed.'
+
+  - id: statements-028
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      PREPARE find_orders AS SELECT * FROM purchase_order
+    expect:
+      - rule: parser
+        code: UNPARSEABLE
+        table: purchase_order
+        alias: null
+        message: 'QueryFence could not parse this statement, so it cannot prove it safe. It mentions purchase_order, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
+    reason: 'PREPARE defines a query that EXECUTE runs later, so an unparseable PREPARE is not ignored.'
+
+  - id: statements-029
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      DO $$ BEGIN DELETE FROM purchase_order; END $$
+    expect:
+      - rule: parser
+        code: UNPARSEABLE
+        table: purchase_order
+        alias: null
+        message: 'QueryFence could not parse this statement, so it cannot prove it safe. It mentions purchase_order, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
+    reason: 'An anonymous code block can read and write rows; the semicolon inside its body does not split it.'
+
+  - id: statements-030
+    clause: [RP-13]
+    policy: default
+    dialect: mysql
+    sql: |-
+      SET @last_id := (SELECT MAX(id) FROM purchase_order)
+    expect:
+      - rule: parser
+        code: UNPARSEABLE
+        table: purchase_order
+        alias: null
+        message: 'QueryFence could not parse this statement, so it cannot prove it safe. It mentions purchase_order, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
+    reason: 'An unparseable statement is ignored by its keyword only when it reads no rows: this SET runs a query.'
+
+  - id: statements-031
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      CREATE TABLE order_copy AS SELECT * FROM purchase_order
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'CREATE TABLE ... AS SELECT copies rows, so its query is checked like any SELECT.'
+
+  - id: statements-032
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      CREATE TABLE order_copy AS SELECT * FROM purchase_order WHERE tenant_id = ?
+    expect: []
+    reason: 'A fenced CREATE TABLE ... AS SELECT passes.'
+
+  - id: statements-033
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      CREATE MATERIALIZED VIEW order_totals AS
+      SELECT o.tenant_id, COUNT(*) FROM purchase_order o GROUP BY o.tenant_id
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: o
+        message: 'purchase_order (o) has no tenant filter. Add "o.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'A materialized view copies rows when it is created, so its query is checked.'
+
+  - id: statements-034
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      CREATE VIEW open_orders AS SELECT * FROM purchase_order WHERE status = 'OPEN'
+    expect: []
+    reason: 'A plain view reads no rows when it is created; views are opaque and are protected by listing them in tables.'
+
+  - id: statements-035
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      EXPLAIN ANALYZE SELECT * FROM purchase_order
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'EXPLAIN ANALYZE executes the statement it explains, so that statement is checked.'
+
+  - id: statements-036
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      EXPLAIN SELECT * FROM purchase_order
+    expect: []
+    reason: 'A plain EXPLAIN only plans the statement and reads no rows.'
+
+  - id: statements-037
+    clause: [RP-7, RP-13]
+    policy: default
+    dialect: mysql
+    sql: |-
+      SET @last_id = (SELECT MAX(id) FROM purchase_order)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'A subquery in a SET statement reads rows and is checked like any other subquery.'
+
+  - id: statements-038
+    clause: [RP-13]
+    policy: default
+    dialect: ansi
+    sql: |-
+      MERGE INTO order_archive a USING purchase_order p ON (a.id = p.id)
+      WHEN NOT MATCHED THEN INSERT (id) VALUES (p.id)
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: purchase_order
+        alias: p
+        message: 'MERGE statements on purchase_order (p) are not analysed yet. Rewrite the statement as INSERT or UPDATE, or suppress its origin with a reason.'
+    reason: 'MERGE is not analysed, so a protected USING source is reported like a protected target.'
+
+  - id: statements-039
+    clause: [RP-13]
+    policy: default
+    dialect: ansi
+    sql: |-
+      MERGE INTO order_archive a
+      USING (SELECT o.id FROM purchase_order o WHERE o.tenant_id = ?) s ON (a.id = s.id)
+      WHEN NOT MATCHED THEN INSERT (id) VALUES (s.id)
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: purchase_order
+        alias: o
+        message: 'MERGE statements on purchase_order (o) are not analysed yet. Rewrite the statement as INSERT or UPDATE, or suppress its origin with a reason.'
+    reason: 'A protected table inside the USING subquery of a MERGE is reported too, fenced or not.'
+
+  - id: statements-040
+    clause: [RP-13]
+    policy: default
+    dialect: ansi
+    sql: |-
+      MERGE INTO order_archive a USING staging s ON (a.id = s.id)
+      WHEN MATCHED THEN UPDATE SET a.total = (SELECT SUM(v.amount) FROM invoice v WHERE v.order_id = s.id)
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: invoice
+        alias: v
+        message: 'MERGE statements on invoice (v) are not analysed yet. Rewrite the statement as INSERT or UPDATE, or suppress its origin with a reason.'
+    reason: 'A protected table anywhere in a MERGE, here in a subquery of the update branch, is reported.'
+
+  - id: statements-041
+    clause: [RP-1, RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      TABLE purchase_order
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'TABLE t is SELECT * FROM t and reads every row.'
+
+  - id: statements-042
+    clause: [RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      CREATE TABLE order_copy AS TABLE purchase_order
+    expect:
+      - rule: parser
+        code: UNPARSEABLE
+        table: purchase_order
+        alias: null
+        message: 'QueryFence could not parse this statement, so it cannot prove it safe. It mentions purchase_order, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.'
+    reason: 'An unparseable CREATE TABLE that copies rows with AS TABLE is not ignored as plain DDL.'
+
+  - id: statements-043
+    clause: [RP-7, RP-13]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT g FROM generate_series(1, (SELECT MAX(o.id) FROM purchase_order o)) g
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: purchase_order
+        alias: o
+        message: 'purchase_order (o) appears in a part of this statement that QueryFence does not analyse yet, so its tenant filter cannot be verified. Rewrite the statement to read it in FROM, a JOIN or a WHERE subquery, or suppress its origin with a reason.'
+    reason: 'A protected table in a clause the engine does not walk, here a table function argument, is reported instead of skipped.'
+
+  - id: statements-044
+    clause: [RP-13, DW-1]
+    policy: default
+    dialect: postgres
+    sql: |-
+      EXPLAIN ANALYZE DELETE FROM purchase_order
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+      - rule: no-unbounded-delete
+        code: NO_WHERE
+        table: purchase_order
+        alias: null
+        message: 'DELETE from purchase_order has no WHERE clause and removes every row. Add a WHERE clause that selects only the intended rows.'
+    reason: 'EXPLAIN ANALYZE really deletes the rows, so every rule applies to the explained statement.'
+
+  - id: statements-045
+    clause: [RP-7, RP-13]
+    policy: default
+    dialect: mysql
+    sql: |-
+      SET @n = (SELECT MAX(g) FROM generate_series(1, (SELECT COUNT(*) FROM purchase_order o)) g)
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: purchase_order
+        alias: o
+        message: 'purchase_order (o) appears in a part of this statement that QueryFence does not analyse yet, so its tenant filter cannot be verified. Rewrite the statement to read it in FROM, a JOIN or a WHERE subquery, or suppress its origin with a reason.'
+    reason: 'A protected table in a part of a SET statement the engine does not walk is reported instead of skipped.'

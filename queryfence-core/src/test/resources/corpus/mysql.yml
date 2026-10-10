@@ -152,3 +152,18 @@ cases:
         alias: o
         message: 'purchase_order (o) has no tenant filter. Add "o.tenant_id = ?" to the WHERE clause of the query block that uses it.'
     reason: 'The same query without a tenant filter is a violation.'
+
+  - id: mysql-013
+    clause: [RP-11, RP-13]
+    policy: default
+    dialect: mysql
+    sql: |-
+      INSERT INTO purchase_order (id, tenant_id, status) VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE status = (SELECT MAX(i.status) FROM order_item i)
+    expect:
+      - rule: tenant-isolation
+        code: UNSUPPORTED_STATEMENT
+        table: order_item
+        alias: i
+        message: 'order_item (i) appears in a part of this statement that QueryFence does not analyse yet, so its tenant filter cannot be verified. Rewrite the statement to read it in FROM, a JOIN or a WHERE subquery, or suppress its origin with a reason.'
+    reason: 'The upsert branch is not analysed, so a protected table read there is reported instead of being silently accepted.'

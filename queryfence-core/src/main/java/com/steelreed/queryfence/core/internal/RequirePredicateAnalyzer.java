@@ -18,7 +18,9 @@ package com.steelreed.queryfence.core.internal;
 import com.steelreed.queryfence.core.Violation;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,7 @@ import net.sf.jsqlparser.expression.JdbcParameter;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
+import net.sf.jsqlparser.expression.WindowDefinition;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
@@ -39,12 +42,16 @@ import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.SetStatement;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.create.table.CreateTable;
+import net.sf.jsqlparser.statement.create.view.CreateView;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.ParenthesedFromItem;
 import net.sf.jsqlparser.statement.select.ParenthesedSelect;
@@ -52,6 +59,7 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.select.SetOperationList;
+import net.sf.jsqlparser.statement.select.TableStatement;
 import net.sf.jsqlparser.statement.select.Values;
 import net.sf.jsqlparser.statement.select.WithItem;
 import net.sf.jsqlparser.statement.update.Update;
@@ -118,6 +126,9 @@ final class RequirePredicateAnalyzer {
   private final String sql;
   private final List<Violation> violations = new ArrayList<>();
 
+  /** Table nodes checked as occurrences, by identity: the rest are reported as not analysed. */
+  private final Set<Table> checkedTables = Collections.newSetFromMap(new IdentityHashMap<>());
+
   /** Name of the recursive CTE whose body is being analyzed, for RP-9 messages. */
   private String recursiveCte;
 
@@ -127,80 +138,162 @@ final class RequirePredicateAnalyzer {
   }
 
   List<Violation> analyze(Statement statement) {
-    if (statement instanceof Select select) {
+    if (statement instanceof Merge merge) {
+      reportMerge(merge);
+      return violations;
+    }
+    Statement analysed = rowReadingPart(statement);
+    if (analysed instanceof Select select) {
       analyzeSelect(select, null, Set.of());
-    } else if (statement instanceof Update update) {
+    } else if (analysed instanceof Update update) {
       analyzeUpdate(update);
-    } else if (statement instanceof Delete delete) {
+    } else if (analysed instanceof Delete delete) {
       analyzeDelete(delete);
-    } else if (statement instanceof Insert insert) {
-      Set<String> ctes = withItems(insert.getWithItemsList(), null, Set.of());
-      checkInsertTarget(insert.getTable(), insert.getColumns(), insert.getSetUpdateSets());
-      if (insert.getSelect() != null) {
-        analyzeSelect(insert.getSelect(), null, ctes);
-      }
-    } else if (statement instanceof Upsert upsert) {
+    } else if (analysed instanceof Insert insert) {
+      analyzeInsert(insert);
+    } else if (analysed instanceof Upsert upsert) {
       checkInsertTarget(upsert.getTable(), upsert.getColumns(), upsert.getUpdateSets());
       if (upsert.getSelect() != null) {
         analyzeSelect(upsert.getSelect(), null, Set.of());
       }
-    } else if (statement instanceof Merge merge) {
-      Table target = merge.getTable();
-      if (target != null && isProtected(target)) {
-        String alias = aliasOf(target);
-        String table = Names.normalize(target.getName());
+    } else if (analysed instanceof SetStatement set) {
+      analyzeSet(set);
+      return violations;
+    } else {
+      // Everything else (DDL, TRUNCATE, transaction control, CALL, ...) is out of scope (RP-13).
+      return violations;
+    }
+    reportUnanalysed(TableOccurrences.in(analysed));
+    return violations;
+  }
+
+  /**
+   * The part of a statement that reads or writes rows: the statement itself, or the query that
+   * {@code CREATE TABLE ... AS SELECT} and {@code CREATE MATERIALIZED VIEW} copy rows from (RP-13).
+   * A plain view reads no rows when it is created and stays out of scope.
+   */
+  private static Statement rowReadingPart(Statement statement) {
+    if (statement instanceof CreateTable create) {
+      return create.getSelect();
+    }
+    if (statement instanceof CreateView view) {
+      return view.isMaterialized() ? view.getSelect() : null;
+    }
+    return statement;
+  }
+
+  /** MERGE is not analysed: every protected table it names is reported (RP-13). */
+  private void reportMerge(Merge merge) {
+    for (Table table : TableOccurrences.in(merge)) {
+      if (isProtected(table)) {
+        String alias = aliasOf(table);
+        String name = Names.normalize(table.getName());
         violations.add(
             violation(
                 Violation.Code.UNSUPPORTED_STATEMENT,
-                table,
+                name,
                 alias,
-                Messages.unsupportedStatement("MERGE", table, alias)));
+                Messages.unsupportedStatement("MERGE", name, alias)));
       }
     }
-    // Everything else (DDL, TRUNCATE, transaction control, CALL, ...) is out of scope (RP-13).
-    return violations;
+  }
+
+  /**
+   * Fail closed for clauses the analyzer does not walk: a protected table the statement names that
+   * was never checked as an occurrence is reported (RP-13).
+   */
+  private void reportUnanalysed(List<Table> tables) {
+    for (Table table : tables) {
+      if (!checkedTables.contains(table) && isProtected(table)) {
+        String alias = aliasOf(table);
+        String name = Names.normalize(table.getName());
+        violations.add(
+            violation(
+                Violation.Code.UNSUPPORTED_STATEMENT,
+                name,
+                alias,
+                Messages.unanalysedOccurrence(name, alias)));
+      }
+    }
+  }
+
+  /** MySQL {@code SET @x = (SELECT ...)}: the subqueries of the assigned values (RP-7). */
+  private void analyzeSet(SetStatement set) {
+    List<Expression> values = new ArrayList<>();
+    for (int i = 0; i < set.getCount(); i++) {
+      if (set.getExpressions(i) != null) {
+        values.addAll(set.getExpressions(i));
+      }
+    }
+    analyzeSubqueries(values, null, Set.of());
+    for (Expression value : values) {
+      reportUnanalysed(TableOccurrences.in(value));
+    }
   }
 
   // ---------------------------------------------------------------- statements
 
   private void analyzeSelect(Select select, Scope parent, Set<String> ctes) {
     Set<String> env = withItems(select.getWithItemsList(), parent, ctes);
+    // ORDER BY, LIMIT, OFFSET and FETCH: a PlainSelect reads them in its own block, so a correlated
+    // subquery there can anchor on it; the other forms read them in the enclosing block.
+    List<Expression> tail = new ArrayList<>();
+    addOrderBy(tail, select.getOrderByElements());
+    addLimit(tail, select.getLimit());
+    addLimit(tail, select.getLimitBy());
+    if (select.getOffset() != null) {
+      tail.add(select.getOffset().getOffset());
+    }
+    if (select.getFetch() != null) {
+      tail.add(select.getFetch().getExpression());
+    }
     if (select instanceof PlainSelect ps) {
-      List<Expression> others = new ArrayList<>();
-      if (ps.getSelectItems() != null) {
-        for (SelectItem<?> item : ps.getSelectItems()) {
-          others.add(item.getExpression());
-        }
+      List<Expression> others = new ArrayList<>(tail);
+      addSelectItems(others, ps.getSelectItems());
+      if (ps.getDistinct() != null) {
+        addSelectItems(others, ps.getDistinct().getOnSelectItems());
       }
       others.add(ps.getHaving());
       others.add(ps.getQualify());
+      others.add(ps.getOracleHierarchical());
       if (ps.getGroupBy() != null && ps.getGroupBy().getGroupByExpressionList() != null) {
         for (Object e : ps.getGroupBy().getGroupByExpressionList()) {
           others.add((Expression) e);
         }
       }
-      addOrderBy(others, ps.getOrderByElements());
+      if (ps.getWindowDefinitions() != null) {
+        for (WindowDefinition window : ps.getWindowDefinitions()) {
+          if (window.getPartitionExpressionList() != null) {
+            for (Object e : window.getPartitionExpressionList()) {
+              others.add((Expression) e);
+            }
+          }
+          addOrderBy(others, window.getOrderByElements());
+        }
+      }
       List<FromItem> items = new ArrayList<>();
       if (ps.getFromItem() != null) {
         items.add(ps.getFromItem());
       }
       analyzeBlock(items, ps.getJoins(), ps.getWhere(), others, parent, env);
-    } else if (select instanceof SetOperationList list) {
+      return;
+    }
+    if (select instanceof SetOperationList list) {
       for (Select branch : list.getSelects()) {
         analyzeSelect(branch, parent, env);
       }
-      List<Expression> others = new ArrayList<>();
-      addOrderBy(others, list.getOrderByElements());
-      analyzeSubqueries(others, parent, env);
     } else if (select instanceof ParenthesedSelect parenthesed) {
       analyzeSelect(parenthesed.getSelect(), parent, env);
     } else if (select instanceof Values values) {
-      List<Expression> others = new ArrayList<>();
       if (values.getExpressions() != null) {
-        others.addAll(values.getExpressions());
+        tail.addAll(values.getExpressions());
       }
-      analyzeSubqueries(others, parent, env);
+    } else if (select instanceof TableStatement table) {
+      // Postgres TABLE t: SELECT * FROM t without a WHERE clause.
+      analyzeBlock(List.of(table.getTable()), null, null, tail, parent, env);
+      return;
     }
+    analyzeSubqueries(tail, parent, env);
   }
 
   private void analyzeUpdate(Update update) {
@@ -218,13 +311,10 @@ final class RequirePredicateAnalyzer {
       joins.addAll(update.getJoins());
     }
     List<Expression> others = new ArrayList<>();
-    if (update.getUpdateSets() != null) {
-      for (UpdateSet set : update.getUpdateSets()) {
-        if (set.getValues() != null) {
-          others.addAll(set.getValues());
-        }
-      }
-    }
+    addUpdateSetValues(others, update.getUpdateSets());
+    addOrderBy(others, update.getOrderByElements());
+    addLimit(others, update.getLimit());
+    addSelectItems(others, update.getReturningClause());
     analyzeBlock(items, joins, update.getWhere(), others, null, ctes);
   }
 
@@ -237,11 +327,36 @@ final class RequirePredicateAnalyzer {
     if (delete.getUsingFromItemList() != null) {
       items.addAll(delete.getUsingFromItemList());
     }
-    analyzeBlock(items, delete.getJoins(), delete.getWhere(), List.of(), null, ctes);
+    List<Expression> others = new ArrayList<>();
+    addOrderBy(others, delete.getOrderByElements());
+    addLimit(others, delete.getLimit());
+    addSelectItems(others, delete.getReturningClause());
+    analyzeBlock(items, delete.getJoins(), delete.getWhere(), others, null, ctes);
+  }
+
+  /**
+   * RP-11 for the target, then the rows it reads: the source query and the subqueries of a MySQL
+   * {@code INSERT ... SET} list and of {@code RETURNING}. The upsert branches ({@code ON CONFLICT
+   * DO UPDATE}, {@code ON DUPLICATE KEY UPDATE}) are not analysed, so a protected table there is
+   * reported as not analysed.
+   */
+  private void analyzeInsert(Insert insert) {
+    Set<String> ctes = withItems(insert.getWithItemsList(), null, Set.of());
+    checkInsertTarget(insert.getTable(), insert.getColumns(), insert.getSetUpdateSets());
+    if (insert.getSelect() != null) {
+      analyzeSelect(insert.getSelect(), null, ctes);
+    }
+    List<Expression> others = new ArrayList<>();
+    addUpdateSetValues(others, insert.getSetUpdateSets());
+    addSelectItems(others, insert.getReturningClause());
+    analyzeSubqueries(others, null, ctes);
   }
 
   /** RP-11: the tenant column must be in the explicit column list (or MySQL SET list). */
   private void checkInsertTarget(Table table, List<Column> columns, List<UpdateSet> setUpdateSets) {
+    if (table != null) {
+      checkedTables.add(table);
+    }
     if (table == null || !isProtected(table)) {
       return;
     }
@@ -344,6 +459,7 @@ final class RequirePredicateAnalyzer {
       Map<Source, List<Expression>> leftJoinConditions,
       List<Expression> allJoinConditions) {
     if (item instanceof Table table) {
+      checkedTables.add(table);
       String name = Names.normalize(table.getName());
       String alias = aliasOf(table);
       boolean isCte = table.getSchemaName() == null && ctes.contains(name);
@@ -713,6 +829,34 @@ final class RequirePredicateAnalyzer {
     if (orderBy != null) {
       for (OrderByElement element : orderBy) {
         out.add(element.getExpression());
+      }
+    }
+  }
+
+  private static void addSelectItems(List<Expression> out, List<? extends SelectItem<?>> items) {
+    if (items != null) {
+      for (SelectItem<?> item : items) {
+        out.add(item.getExpression());
+      }
+    }
+  }
+
+  private static void addLimit(List<Expression> out, Limit limit) {
+    if (limit != null) {
+      out.add(limit.getRowCount());
+      out.add(limit.getOffset());
+      if (limit.getByExpressions() != null) {
+        out.addAll(limit.getByExpressions());
+      }
+    }
+  }
+
+  private static void addUpdateSetValues(List<Expression> out, List<UpdateSet> sets) {
+    if (sets != null) {
+      for (UpdateSet set : sets) {
+        if (set.getValues() != null) {
+          out.addAll(set.getValues());
+        }
       }
     }
   }

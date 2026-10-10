@@ -211,3 +211,76 @@ cases:
         alias: o
         message: 'DELETE from purchase_order (o) has no WHERE clause and removes every row. Add a WHERE clause that selects only the intended rows.'
     reason: 'A multi-table DELETE without WHERE breaks every rule at once.'
+
+  - id: update-delete-015
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: postgres
+    sql: |-
+      DELETE FROM purchase_order WHERE tenant_id = ?
+      RETURNING (SELECT COUNT(*) FROM invoice v WHERE v.order_id = purchase_order.id)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the RETURNING clause of a DELETE read rows and are checked.'
+
+  - id: update-delete-016
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: mysql
+    sql: |-
+      DELETE FROM purchase_order WHERE tenant_id = ?
+      ORDER BY (SELECT MAX(v.id) FROM invoice v) LIMIT 10
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the ORDER BY of a DELETE are checked.'
+
+  - id: update-delete-017
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: mysql
+    sql: |-
+      DELETE FROM purchase_order WHERE tenant_id = ? LIMIT (SELECT COUNT(*) FROM invoice v)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the LIMIT of a DELETE are checked.'
+
+  - id: update-delete-018
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: mysql
+    sql: |-
+      UPDATE purchase_order SET status = ? WHERE tenant_id = ?
+      ORDER BY (SELECT MAX(v.id) FROM invoice v) LIMIT 1
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the ORDER BY of an UPDATE are checked.'
+
+  - id: update-delete-019
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: mysql
+    sql: |-
+      UPDATE purchase_order SET status = ? WHERE tenant_id = ? LIMIT (SELECT COUNT(*) FROM invoice v)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the LIMIT of an UPDATE are checked.'

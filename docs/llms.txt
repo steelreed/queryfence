@@ -60,7 +60,9 @@ Every occurrence of a protected table must be fenced by conditions that apply to
 - Each subquery, CTE body and UNION branch is its own query block; filters outside a derived table
   or CTE do not fence what is inside it.
 - INSERT: the tenant column must appear in the column list.
-- Fail closed: unparseable DML, MERGE on a protected table, and unprovable statements are violations.
+- Fail closed: unparseable DML, MERGE naming a protected table anywhere (target, USING, subquery),
+  a protected table in a clause the engine does not walk, and unprovable statements are violations.
+  A string that does not parse as a whole is split on `;` and each statement is checked.
 
 ## Violation codes
 

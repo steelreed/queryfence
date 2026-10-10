@@ -143,3 +143,47 @@ cases:
         alias: o
         message: 'purchase_order (o) has no tenant filter. Add "o.tenant_id = ?" to the WHERE clause of the query block that uses it.'
     reason: 'The same statement fails when the subquery is unfenced.'
+
+  - id: insert-012
+    clause: [RP-7, RP-11]
+    policy: default
+    dialect: postgres
+    sql: |-
+      INSERT INTO purchase_order (id, tenant_id) VALUES (?, ?)
+      RETURNING (SELECT COUNT(*) FROM invoice v)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the RETURNING clause of an INSERT read rows and are checked.'
+
+  - id: insert-013
+    clause: [RP-7, RP-11]
+    policy: default
+    dialect: mysql
+    sql: |-
+      INSERT INTO purchase_order SET id = ?, tenant_id = ?,
+        status = (SELECT MAX(i.status) FROM order_item i)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: order_item
+        alias: i
+        message: 'order_item (i) has no tenant filter. Add "i.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the SET list of a MySQL INSERT are checked.'
+
+  - id: insert-014
+    clause: [RP-11]
+    policy: default
+    dialect: ansi
+    sql: |-
+      UPSERT INTO purchase_order (id, tenant_id) SELECT v.order_id, v.tenant_id FROM invoice v
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'The source query of an UPSERT is checked like the source of INSERT ... SELECT.'

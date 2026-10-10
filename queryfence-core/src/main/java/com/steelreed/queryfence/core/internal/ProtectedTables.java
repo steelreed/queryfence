@@ -20,7 +20,6 @@ import com.steelreed.queryfence.core.Rule;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -48,7 +47,7 @@ final class ProtectedTables {
     if (declared.isEmpty()) {
       return List.of();
     }
-    Set<String> identifiers = identifiersOf(sql);
+    Set<String> identifiers = new HashSet<>(SqlText.words(sql));
     List<String> mentioned = new ArrayList<>();
     for (String table : declared) {
       if (identifiers.contains(table) && !mentioned.contains(table)) {
@@ -68,66 +67,5 @@ final class ProtectedTables {
       }
     }
     return names;
-  }
-
-  private static Set<String> identifiersOf(String sql) {
-    Set<String> identifiers = new HashSet<>();
-    StringBuilder word = new StringBuilder();
-    String text = withoutCommentsAndLiterals(sql);
-    for (int i = 0; i < text.length(); i++) {
-      char c = text.charAt(i);
-      if (Character.isLetterOrDigit(c) || c == '_' || c == '$') {
-        word.append(c);
-      } else {
-        take(word, identifiers);
-      }
-    }
-    take(word, identifiers);
-    return identifiers;
-  }
-
-  private static void take(StringBuilder word, Set<String> identifiers) {
-    if (word.length() > 0) {
-      identifiers.add(word.toString().toLowerCase(Locale.ROOT));
-      word.setLength(0);
-    }
-  }
-
-  private static String withoutCommentsAndLiterals(String sql) {
-    StringBuilder out = new StringBuilder(sql.length());
-    int i = 0;
-    while (i < sql.length()) {
-      if (sql.startsWith("--", i)) {
-        int end = sql.indexOf('\n', i);
-        i = end < 0 ? sql.length() : end;
-      } else if (sql.startsWith("/*", i)) {
-        int end = sql.indexOf("*/", i);
-        i = end < 0 ? sql.length() : end + 2;
-        out.append(' ');
-      } else if (sql.charAt(i) == '\'') {
-        i = endOfLiteral(sql, i);
-        out.append(' ');
-      } else {
-        out.append(sql.charAt(i));
-        i++;
-      }
-    }
-    return out.toString();
-  }
-
-  private static int endOfLiteral(String sql, int start) {
-    int i = start + 1;
-    while (i < sql.length()) {
-      if (sql.charAt(i) == '\'') {
-        // '' inside a literal is an escaped quote, not its end.
-        if (i + 1 < sql.length() && sql.charAt(i + 1) == '\'') {
-          i += 2;
-          continue;
-        }
-        return i + 1;
-      }
-      i++;
-    }
-    return sql.length();
   }
 }
