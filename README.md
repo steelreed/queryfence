@@ -98,9 +98,8 @@ and [docs/ADOPTION.md](docs/ADOPTION.md) for putting it into a project that alre
 
 ## Installation
 
-> The coordinates below are 0.1.0. If it is not on Maven Central yet, or you want an unreleased
-> change, clone the repository and run `./mvnw install`, which puts `0.1.0-SNAPSHOT` in your local
-> repository.
+> To try a change that is not released yet, clone the repository and run `./mvnw install`, which
+> puts the current `-SNAPSHOT` version in your local repository.
 
 For a Spring Boot application:
 
@@ -332,9 +331,11 @@ Honest limits of QueryFence:
 
 ## Status and roadmap
 
-Phase 0: design. Next come the core rule engine and a golden corpus of SQL cases, then JDBC capture,
-the JUnit 5 extension, and a Testcontainers matrix on MySQL and Postgres.
-See [docs/DESIGN.md](docs/DESIGN.md#roadmap).
+0.1.0 is the first release. The rule engine, JDBC capture and the JUnit 5 and Spring modules are
+tested against 260 golden SQL cases, metamorphic tests, mutation testing (PIT) and a Testcontainers
+matrix on MySQL and PostgreSQL. The public API may still change before 1.0. See
+[CHANGELOG.md](CHANGELOG.md) for what each release contains and
+[docs/DESIGN.md](docs/DESIGN.md#roadmap) for what comes next.
 
 Found a SQL pattern that slips past a rule? That is a security issue: please report it privately,
 see [SECURITY.md](SECURITY.md).

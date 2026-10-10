@@ -5,7 +5,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-24
+## [0.1.0] - 2026-10-10
 
 First release. QueryFence checks the SQL your integration tests actually send to the database
 against a policy you declare once, and fails the build on the statements that break it, naming the

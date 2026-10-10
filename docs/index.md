@@ -1,6 +1,6 @@
 <div class="qf-hero" markdown>
 
-<span class="qf-pill">Part of Steelreed · 0.1.0 in preparation</span>
+<span class="qf-pill">Part of Steelreed · 0.1.0</span>
 
 # QueryFence
 
@@ -14,8 +14,8 @@ the ones that break it, pointing at the class, method and line that wrote the qu
 
 </div>
 
-!!! warning "Work in progress"
-    Nothing is published to Maven Central yet and the API may still change before 0.1.0. CI tests
+!!! note "First release"
+    0.1.0 is the first release, and the public API may still change before 1.0. CI tests
     QueryFence on JUnit 5.10 to 6.1 and Spring Boot 3.3 to 4.1; there are no real users on Spring
     Boot 4 yet, so that combination is tested but not promised.
 

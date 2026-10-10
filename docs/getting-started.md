@@ -27,9 +27,9 @@ add and no test code to change.
     </dependency>
     ```
 
-!!! note "Not there yet?"
-    If 0.1.0 is not on Maven Central when you read this, clone the repository and run
-    `./mvnw install`, which puts `0.1.0-SNAPSHOT` in your local repository.
+!!! note "Unreleased changes"
+    To try a change that is not released yet, clone the repository and run `./mvnw install`, which
+    puts the current `-SNAPSHOT` version in your local repository.
 
 ## 2. Declare the policy
 
