@@ -186,7 +186,7 @@ parameter value checks, custom rule DSL, UI.
 
 ## Current status and plan
 
-Phase 0 to Phase 6 are done: design, 205 golden cases, rule engine, metamorphic tests, PIT, SQL
+Phase 0 to Phase 6 are done: design, 260 golden cases, rule engine, metamorphic tests, PIT, SQL
 capture with origin resolution, the JUnit and Spring modules, the Testcontainers matrix, the
 examples, the documentation site and the Phase 5 dogfood measurement (`dogfood/`, 20 findings on 75
 statements, 4 false positives, and a list of what 0.1.0 must fix first — see
