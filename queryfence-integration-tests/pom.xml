@@ -14,8 +14,9 @@
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.install.skip>true</maven.install.skip>
-    <!-- Never goes to Maven Central: it is a test harness, not a library. -->
-    <skipPublishing>true</skipPublishing>
+    <!-- Never goes to Maven Central: the release profile excludes it from the bundle. Do not set
+         skipPublishing here: the last module of the build uploads the whole bundle, so skipping
+         it here skips every module. -->
     <maven.javadoc.skip>true</maven.javadoc.skip>
     <maven.source.skip>true</maven.source.skip>
     <gpg.skip>true</gpg.skip>

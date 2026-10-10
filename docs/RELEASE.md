@@ -78,12 +78,18 @@ ls queryfence-*/target/*.jar
 
 ### 3. Sign locally once, to be sure
 
-This is the only step that touches your key, and it stays on your machine:
+This is the only step that touches your key, and it stays on your machine. The release profile
+passes the passphrase to `gpg` the way CI does, through `MAVEN_GPG_PASSPHRASE`, so set it for this
+shell without echoing it or writing it to your history:
 
 ```bash
-./mvnw -B -Prelease verify          # prompts for the GPG passphrase
+read -s "MAVEN_GPG_PASSPHRASE?GPG passphrase: " && export MAVEN_GPG_PASSPHRASE && echo
+./mvnw -B -Prelease -DskipTests verify
+unset MAVEN_GPG_PASSPHRASE
 ls queryfence-core/target/*.asc     # signatures next to every artifact
 ```
+
+(`read -s "VAR?prompt"` is zsh; in bash use `read -s -p "GPG passphrase: " MAVEN_GPG_PASSPHRASE`.)
 
 If `gpg` cannot find a key, fix that before tagging. A failing signature in CI wastes a tag.
 
@@ -101,8 +107,12 @@ git push origin v0.1.0
 ### 5. Watch the workflow
 
 **Actions → Release**. It sets the version from the tag, builds, signs with the key from the
-secrets, uploads to Central and creates the GitHub release. It does **not** publish: the bundle
-waits for you.
+secrets, uploads to Central, waits until Central has validated the bundle, and creates the GitHub
+release. It does **not** publish: the bundle waits for you.
+
+The log of the upload step must end with a deployment ID and `VALIDATED`. If it says `Skipping
+Central Release Publishing`, nothing was uploaded: a module set `skipPublishing`, which skips the
+whole bundle because the last module uploads it.
 
 ### 6. Publish the bundle
 

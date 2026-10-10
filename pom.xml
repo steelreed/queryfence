@@ -380,6 +380,11 @@
             <configuration>
               <publishingServerId>central</publishingServerId>
               <autoPublish>false</autoPublish>
+              <!-- Fail the release build when Central rejects the bundle, not later in the portal. -->
+              <waitUntil>validated</waitUntil>
+              <excludeArtifacts>
+                <excludeArtifact>queryfence-integration-tests</excludeArtifact>
+              </excludeArtifacts>
             </configuration>
           </plugin>
         </plugins>
