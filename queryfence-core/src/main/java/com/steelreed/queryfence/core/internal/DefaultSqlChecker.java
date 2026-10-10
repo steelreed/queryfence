@@ -21,9 +21,10 @@ import com.steelreed.queryfence.core.SqlChecker;
 import com.steelreed.queryfence.core.Violation;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import net.sf.jsqlparser.statement.ExplainStatement;
 import net.sf.jsqlparser.statement.Statement;
 
 /** Default {@link SqlChecker}: parses once per SQL string, then applies every rule. */
@@ -33,9 +34,13 @@ public final class DefaultSqlChecker implements SqlChecker {
   private static final ParseCache PARSE_CACHE = new ParseCache(10_000);
 
   /**
-   * Statements that carry no tenant data and that JSqlParser does not always understand (RP-13).
-   * When such a statement fails to parse it is ignored instead of reported: tests routinely run
-   * session setup and schema statements. Anything that could read or write rows stays fail closed.
+   * First keywords of statements that carry no tenant data and that JSqlParser does not always
+   * understand (RP-13): session setup, transaction control, schema statements. An unparseable
+   * statement that starts with one of them is ignored instead of reported, because tests routinely
+   * run them — but only when it also uses none of {@link #READS_OR_WRITES_ROWS}: {@code CREATE
+   * TABLE t AS SELECT ...} or {@code SET @x = (SELECT ...)} read rows and stay fail closed.
+   * Keywords whose statements run queries ({@code COPY}, {@code DO}, {@code EXECUTE}, {@code
+   * EXPLAIN}, {@code PREPARE}) are not listed at all.
    */
   private static final Set<String> IGNORED_WHEN_UNPARSEABLE =
       Set.of(
@@ -48,7 +53,6 @@ public final class DefaultSqlChecker implements SqlChecker {
           "savepoint",
           "release",
           "use",
-          "explain",
           "analyze",
           "analyse",
           "vacuum",
@@ -64,10 +68,7 @@ public final class DefaultSqlChecker implements SqlChecker {
           "truncate",
           "comment",
           "call",
-          "do",
-          "prepare",
           "deallocate",
-          "execute",
           "flush",
           "checkpoint",
           "describe",
@@ -79,8 +80,11 @@ public final class DefaultSqlChecker implements SqlChecker {
           "cluster",
           "reindex",
           "listen",
-          "notify",
-          "copy");
+          "notify");
+
+  /** Keywords that read or write rows; any of them makes an unparseable statement reportable. */
+  private static final Set<String> READS_OR_WRITES_ROWS =
+      Set.of("select", "insert", "update", "delete", "merge", "upsert", "copy");
 
   private final Policy policy;
 
@@ -92,34 +96,95 @@ public final class DefaultSqlChecker implements SqlChecker {
   public List<Violation> check(String sql) {
     Objects.requireNonNull(sql, "sql");
     ParseCache.Parsed parsed = PARSE_CACHE.get(sql);
-    if (parsed.failed()) {
-      if (IGNORED_WHEN_UNPARSEABLE.contains(leadingKeyword(sql))) {
-        return List.of();
-      }
-      return unparseable(sql);
+    if (!parsed.failed()) {
+      return checkStatements(parsed.statements(), sql);
     }
-    List<Statement> statements = parsed.statements();
+    // One statement the parser rejects can hide the others of a multi-statement string, and the
+    // keyword of the first one says nothing about the rest: split the string and check each part.
+    List<String> parts = SqlText.statements(sql);
+    if (parts.size() <= 1) {
+      return checkUnparseable(sql);
+    }
+    List<Violation> violations = new ArrayList<>();
+    for (String part : parts) {
+      ParseCache.Parsed parsedPart = PARSE_CACHE.get(part);
+      violations.addAll(
+          parsedPart.failed()
+              ? checkUnparseable(part)
+              : checkStatements(parsedPart.statements(), part));
+    }
+    return List.copyOf(violations);
+  }
+
+  /**
+   * Applies every rule to parsed statements. An unexpected failure while analysing a statement is
+   * reported like a statement that does not parse, never thrown: the engine fails closed.
+   */
+  List<Violation> checkStatements(List<Statement> statements, String sql) {
     List<Violation> violations = new ArrayList<>();
     for (Statement statement : statements) {
-      String statementSql = statements.size() == 1 ? sql : statement.toString();
-      for (Rule rule : policy.rules()) {
-        if (rule instanceof RequirePredicateRule requirePredicate) {
-          violations.addAll(
-              new RequirePredicateAnalyzer(requirePredicate, statementSql).analyze(statement));
-        } else if (rule instanceof UnboundedWriteRule unboundedWrite) {
-          violations.addAll(UnboundedWriteCheck.check(unboundedWrite, statement, statementSql));
-        }
+      String statementSql = statements.size() == 1 ? sql : String.valueOf(statement);
+      try {
+        violations.addAll(checkStatement(statement, statementSql));
+      } catch (RuntimeException | StackOverflowError e) {
+        violations.addAll(
+            parserViolations(
+                statementSql, Messages::unanalysableMentioning, Messages.unanalysable()));
       }
     }
     return List.copyOf(violations);
   }
 
-  /** The first keyword of a statement, skipping leading comments and whitespace. */
+  private List<Violation> checkStatement(Statement statement, String sql) {
+    if (statement instanceof ExplainStatement explain
+        && explain.getOption(ExplainStatement.OptionType.ANALYZE) != null
+        && explain.getStatement() != null) {
+      // EXPLAIN ANALYZE executes the statement it explains (RP-13).
+      return checkStatement(explain.getStatement(), sql);
+    }
+    List<Violation> violations = new ArrayList<>();
+    for (Rule rule : policy.rules()) {
+      if (rule instanceof RequirePredicateRule requirePredicate) {
+        violations.addAll(new RequirePredicateAnalyzer(requirePredicate, sql).analyze(statement));
+      } else if (rule instanceof UnboundedWriteRule unboundedWrite) {
+        violations.addAll(UnboundedWriteCheck.check(unboundedWrite, statement, sql));
+      }
+    }
+    return violations;
+  }
+
+  /** RP-13: ignored when it cannot touch rows, otherwise reported. */
+  private List<Violation> checkUnparseable(String sql) {
+    if (cannotTouchRows(sql)) {
+      return List.of();
+    }
+    return parserViolations(sql, Messages::unparseableMentioning, Messages.unparseable());
+  }
+
+  private static boolean cannotTouchRows(String sql) {
+    if (!IGNORED_WHEN_UNPARSEABLE.contains(SqlText.leadingKeyword(sql))) {
+      return false;
+    }
+    List<String> words = SqlText.words(sql);
+    for (int i = 0; i < words.size(); i++) {
+      String word = words.get(i);
+      String previous = i == 0 ? "" : words.get(i - 1);
+      boolean foreignKeyAction =
+          previous.equals("on") && (word.equals("delete") || word.equals("update"));
+      boolean tableQuery = previous.equals("as") && word.equals("table"); // AS TABLE t
+      if ((READS_OR_WRITES_ROWS.contains(word) && !foreignKeyAction) || tableQuery) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * One violation per protected table the statement mentions, so a parser failure cannot hide a
    * table from the report; one table-less violation when it mentions none.
    */
-  private List<Violation> unparseable(String sql) {
+  private List<Violation> parserViolations(
+      String sql, Function<String, String> mentioning, String withoutTable) {
     List<String> mentioned = ProtectedTables.mentionedIn(sql, policy);
     if (mentioned.isEmpty()) {
       return List.of(
@@ -129,7 +194,7 @@ public final class DefaultSqlChecker implements SqlChecker {
               Violation.Code.UNPARSEABLE,
               null,
               null,
-              Messages.unparseable(),
+              withoutTable,
               sql));
     }
     List<Violation> violations = new ArrayList<>(mentioned.size());
@@ -141,32 +206,9 @@ public final class DefaultSqlChecker implements SqlChecker {
               Violation.Code.UNPARSEABLE,
               table,
               null,
-              Messages.unparseableMentioning(table),
+              mentioning.apply(table),
               sql));
     }
     return List.copyOf(violations);
-  }
-
-  private static String leadingKeyword(String sql) {
-    int i = 0;
-    while (i < sql.length()) {
-      char c = sql.charAt(i);
-      if (Character.isWhitespace(c)) {
-        i++;
-      } else if (sql.startsWith("--", i)) {
-        int end = sql.indexOf('\n', i);
-        i = end < 0 ? sql.length() : end + 1;
-      } else if (sql.startsWith("/*", i)) {
-        int end = sql.indexOf("*/", i);
-        i = end < 0 ? sql.length() : end + 2;
-      } else {
-        break;
-      }
-    }
-    int start = i;
-    while (i < sql.length() && Character.isLetter(sql.charAt(i))) {
-      i++;
-    }
-    return sql.substring(start, i).toLowerCase(Locale.ROOT);
   }
 }

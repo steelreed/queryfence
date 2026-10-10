@@ -149,3 +149,165 @@ cases:
         alias: v
         message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
     reason: 'Subqueries in ORDER BY are blocks too.'
+
+  - id: subquery-012
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?
+      LIMIT (SELECT COUNT(*) FROM purchase_order)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in LIMIT are blocks too.'
+
+  - id: subquery-013
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?
+      LIMIT (SELECT COUNT(*) FROM purchase_order p WHERE p.tenant_id = ?)
+    expect: []
+    reason: 'A fenced subquery in LIMIT passes.'
+
+  - id: subquery-014
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?
+      OFFSET (SELECT COUNT(*) FROM invoice v) ROWS
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in OFFSET are blocks too.'
+
+  - id: subquery-015
+    clause: [RP-7]
+    policy: default
+    dialect: ansi
+    sql: |-
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?
+      FETCH FIRST (SELECT COUNT(*) FROM invoice v) ROWS ONLY
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in FETCH FIRST are blocks too.'
+
+  - id: subquery-016
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT DISTINCT ON ((SELECT MAX(v.id) FROM invoice v)) o.id
+      FROM purchase_order o WHERE o.tenant_id = ?
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in DISTINCT ON are blocks too.'
+
+  - id: subquery-017
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT o.id, ROW_NUMBER() OVER w FROM purchase_order o WHERE o.tenant_id = ?
+      WINDOW w AS (ORDER BY (SELECT MAX(v.amount) FROM invoice v WHERE v.order_id = o.id))
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in a WINDOW definition are blocks too.'
+
+  - id: subquery-018
+    clause: [RP-7]
+    policy: default
+    dialect: ansi
+    sql: |-
+      SELECT o.id FROM purchase_order o WHERE o.tenant_id = ?
+      START WITH o.id IN (SELECT i.order_id FROM order_item i)
+      CONNECT BY PRIOR o.id = o.parent_id
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: order_item
+        alias: i
+        message: 'order_item (i) has no tenant filter. Add "i.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in START WITH and CONNECT BY are blocks too.'
+
+  - id: subquery-019
+    clause: [RP-7, RP-10]
+    policy: default
+    dialect: postgres
+    sql: |-
+      UPDATE purchase_order SET status = ? WHERE tenant_id = ?
+      RETURNING (SELECT COUNT(*) FROM invoice v WHERE v.order_id = purchase_order.id)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in RETURNING read rows and are checked.'
+
+  - id: subquery-020
+    clause: [RP-7, RP-8]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT o.id FROM purchase_order o WHERE o.tenant_id = ?
+      UNION SELECT v.order_id FROM invoice v WHERE v.tenant_id = ?
+      LIMIT (SELECT COUNT(*) FROM order_item i)
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: order_item
+        alias: i
+        message: 'order_item (i) has no tenant filter. Add "i.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the LIMIT of a set operation are blocks too.'
+
+  - id: subquery-021
+    clause: [RP-7]
+    policy: default
+    dialect: mysql
+    sql: |-
+      SELECT * FROM purchase_order o WHERE o.tenant_id = ?
+      LIMIT (SELECT COUNT(*) FROM invoice v), 10
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the offset of a MySQL LIMIT are blocks too.'
+
+  - id: subquery-022
+    clause: [RP-7]
+    policy: default
+    dialect: postgres
+    sql: |-
+      SELECT o.id, ROW_NUMBER() OVER w FROM purchase_order o WHERE o.tenant_id = ?
+      WINDOW w AS (PARTITION BY (SELECT MAX(v.id) FROM invoice v))
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: invoice
+        alias: v
+        message: 'invoice (v) has no tenant filter. Add "v.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Subqueries in the PARTITION BY of a WINDOW definition are blocks too.'

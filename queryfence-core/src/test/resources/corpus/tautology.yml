@@ -149,3 +149,78 @@ cases:
       UPDATE purchase_order SET status = ? WHERE tenant_id = ? AND 1 = 2
     expect: []
     reason: 'A constant-false conjunct is not a tautology and the tenant predicate still fences the table.'
+
+  - id: tautology-010
+    clause: [DW-2]
+    policy: default
+    dialect: ansi
+    sql: |-
+      DELETE FROM currency WHERE 99999999999999999999
+    expect:
+      - rule: no-unbounded-delete
+        code: TAUTOLOGICAL_WHERE
+        table: currency
+        alias: null
+        message: 'DELETE from currency has a WHERE clause that is always true and removes every row. Replace it with a condition that selects only the intended rows.'
+    reason: 'An integer literal beyond the range of a long is still a non-zero constant, and it must not make the engine throw.'
+
+  - id: tautology-011
+    clause: [DW-2]
+    policy: default
+    dialect: ansi
+    sql: |-
+      DELETE FROM currency WHERE 99999999999999999999 = 99999999999999999999
+    expect:
+      - rule: no-unbounded-delete
+        code: TAUTOLOGICAL_WHERE
+        table: currency
+        alias: null
+        message: 'DELETE from currency has a WHERE clause that is always true and removes every row. Replace it with a condition that selects only the intended rows.'
+    reason: 'Equal integer literals beyond the range of a long form a tautology.'
+
+  - id: tautology-012
+    clause: [RP-4, DW-3]
+    policy: default
+    dialect: ansi
+    sql: |-
+      DELETE FROM purchase_order WHERE tenant_id = ? OR 99999999999999999999 = 99999999999999999998
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'Different integer literals beyond the range of a long are never equal, so the OR is no tautology; it still leaves the tenant filter optional.'
+
+  - id: tautology-013
+    clause: [RP-10, UW-3]
+    policy: default
+    dialect: ansi
+    sql: |-
+      UPDATE purchase_order SET status = ? WHERE 000000000000000000000000
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+    reason: 'A zero literal is false however many digits it is written with, so it is no tautology.'
+
+  - id: tautology-014
+    clause: [RP-10, DW-2]
+    policy: default
+    dialect: ansi
+    sql: |-
+      DELETE FROM purchase_order WHERE 99999999999999999999
+    expect:
+      - rule: tenant-isolation
+        code: MISSING_PREDICATE
+        table: purchase_order
+        alias: null
+        message: 'purchase_order has no tenant filter. Add "purchase_order.tenant_id = ?" to the WHERE clause of the query block that uses it.'
+      - rule: no-unbounded-delete
+        code: TAUTOLOGICAL_WHERE
+        table: purchase_order
+        alias: null
+        message: 'DELETE from purchase_order has a WHERE clause that is always true and removes every row. Replace it with a condition that selects only the intended rows.'
+    reason: 'A huge literal neither crashes the check nor hides the missing tenant filter.'

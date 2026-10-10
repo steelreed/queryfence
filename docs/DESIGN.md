@@ -21,7 +21,7 @@ corpus are written against. Numbered clauses (`RP-3`, `UW-1`, ...) are reference
 - **Seeing inside the database.** Views, stored procedures, triggers and `CALL` are opaque.
 - **DDL and `TRUNCATE`.** Schema statements are ignored by all rules.
 - **Upsert conflict branches.** `ON CONFLICT DO UPDATE` / `ON DUPLICATE KEY UPDATE` are not analysed
-  beyond the `INSERT` column list.
+  beyond the `INSERT` column list; a protected table read there is reported as not analysed (RP-13).
 - **Parallel test execution.** Statements are attributed to the running test by time window;
   JUnit parallel execution is unsupported in v0.1.
 - Spring Boot starter for production, baseline file, HTML report, custom rule DSL, UI.
@@ -206,8 +206,12 @@ SELECT * FROM purchase_order o LEFT JOIN order_item i ON i.order_id = o.id AND o
 ### RP-7 Subqueries
 
 Every subquery is its own query block and is checked on its own, wherever it appears: `WHERE`
-(`IN`, `EXISTS`, scalar comparison), `SELECT` list, `FROM` (derived table), `HAVING`, `SET` of an
-`UPDATE`. A predicate in an outer block never fences an occurrence in an inner block.
+(`IN`, `EXISTS`, scalar comparison), `SELECT` list, `FROM` (derived table), `HAVING`, `QUALIFY`,
+`GROUP BY`, `ORDER BY`, `LIMIT`, `OFFSET`, `FETCH`, `DISTINCT ON`, `WINDOW` definitions,
+`START WITH`/`CONNECT BY`, `SET` of an `UPDATE` or of a MySQL `INSERT ... SET`, `RETURNING`, and the
+value of a `SET @variable = (...)`. A predicate in an outer block never fences an occurrence in an
+inner block. A protected table in any other place the engine does not walk is reported as not
+analysed (RP-13), never skipped.
 
 A correlated subquery may anchor its occurrences on an enclosing block through a tenant-column
 equality (RP-3): `i.tenant_id = o.tenant_id` inside the subquery fences `i` when `o` is a fenced
@@ -330,17 +334,34 @@ INSERT INTO invoice (tenant_id, order_id) SELECT o.tenant_id, o.id FROM purchase
 ### RP-13 Statements out of scope of the rule
 
 Statements that touch no protected table pass. DDL, `TRUNCATE`, transaction control (`BEGIN`,
-`COMMIT`, `SET`, `SAVEPOINT`), `SHOW`/`EXPLAIN` and `CALL` are ignored: test fixtures routinely
-truncate tables, and schema statements carry no tenant data. A DML statement type the rule does
-not analyse (`MERGE` in v0.1) that references a protected table is a violation
-(`UNSUPPORTED_STATEMENT`). A string holding several statements separated by `;` is split and each
-statement is checked.
+`COMMIT`, `SET`, `SAVEPOINT`), `SHOW`, `EXPLAIN` without `ANALYZE` and `CALL` are ignored: test
+fixtures routinely truncate tables, and schema statements carry no tenant data. Statements of these
+kinds that do read rows are checked like the query they run: the `SELECT` of
+`CREATE TABLE ... AS SELECT` and of `CREATE MATERIALIZED VIEW`, the statement under
+`EXPLAIN ANALYZE` (which executes it), and the subqueries of a `SET @variable = (...)`. A plain
+`CREATE VIEW` reads no rows and stays ignored; views are opaque.
 
-Some of these statements are dialect syntax JSqlParser cannot parse (`SET search_path TO app`,
-`FLUSH TABLES`). When an unparseable statement starts with a keyword that can neither read nor
-write rows (`SET`, `SHOW`, `BEGIN`, `COMMIT`, `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `GRANT`,
-`CALL`, ...) it is ignored instead of reported, because test fixtures run such statements all the
-time. Anything else that fails to parse stays fail closed and is reported (`UNPARSEABLE`).
+A DML statement type the rule does not analyse (`MERGE` in v0.1) is a violation
+(`UNSUPPORTED_STATEMENT`) for every protected table it names, wherever it names it: target,
+`USING` source, or any subquery. Within the statements the rule does analyse, a protected table
+that appears in a place the engine does not walk (a table function argument, an upsert conflict
+branch, ...) is an `UNSUPPORTED_STATEMENT` violation too, with its own message: every table node of
+the parsed statement must have been checked as an occurrence.
+
+A string holding several statements separated by `;` is split and each statement is checked. When
+the string does not parse as a whole, it is split on its top-level semicolons (not inside comments,
+string literals, quoted identifiers or `$$` bodies) and each part is parsed and checked on its own,
+so one statement the parser rejects never hides the others.
+
+Some statements are dialect syntax JSqlParser cannot parse (`SET search_path TO app`,
+`FLUSH TABLES`). An unparseable statement is ignored instead of reported only when **both** hold:
+it starts with a keyword of a statement that carries no tenant data (`SET`, `SHOW`, `BEGIN`,
+`START`, `COMMIT`, `ROLLBACK`, `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `GRANT`, `CALL`, `FLUSH`,
+...), and it uses no keyword that reads or writes rows (`SELECT`, `INSERT`, `UPDATE`, `DELETE`,
+`MERGE`, `UPSERT`, `COPY`, or `AS TABLE`; `ON DELETE`/`ON UPDATE` of a foreign key do not count).
+Comments and string literals are not read. Statements that run queries (`COPY`, `DO`, `EXECUTE`,
+`EXPLAIN`, `PREPARE`) are never ignored by keyword. Anything else that fails to parse stays fail
+closed and is reported (`UNPARSEABLE`).
 
 ### RP-14 Lookups by primary key
 
@@ -408,7 +429,9 @@ DELETE FROM order_item WHERE order_id = ? OR TRUE
 ## Unparseable SQL
 
 A statement JSqlParser cannot parse produces an `UNPARSEABLE` violation, whatever tables it may
-touch.
+touch. So does a statement that parses but whose analysis fails unexpectedly: the engine never
+throws, it reports the statement as one it could not analyse, with the same rule id, code, mode and
+table scan, and a message that says *analyse* instead of *parse*.
 
 **Mode.** `onUnparseable` governs these violations and nothing else, independently of `mode`:
 `onUnparseable: FAIL` (the default) fails the test, `onUnparseable: REPORT` only records it. A run
@@ -453,7 +476,10 @@ fixed test-first by adding corpus cases.
 | Unfenced `INSERT ... SELECT` source | `INSERT INTO t (...) SELECT ... FROM purchase_order` | RP-11 |
 | Quoting / case / schema tricks | `` `Purchase_Order` ``, `app."PURCHASE_ORDER"` | RP-12 |
 | SQL the parser does not understand | vendor syntax | fail closed: `UNPARSEABLE` |
-| Unsupported DML | `MERGE INTO purchase_order ...` | RP-13 |
+| Unsupported DML | `MERGE INTO purchase_order ...`, `MERGE ... USING purchase_order` | RP-13 |
+| Protected table in a clause the engine does not walk | `generate_series(1, (SELECT ... FROM purchase_order))` | RP-13 |
+| Statement hidden behind an ignorable one | `SET search_path TO app; SELECT * FROM purchase_order` | RP-13 (split) |
+| Query inside a statement ignored by keyword | `CREATE TABLE t AS SELECT ...`, `COPY (SELECT ...)` | RP-13 |
 
 Known **unblocked** paths in v0.1 (documented limitations): views and stored procedures over
 protected tables (list views in `tables` as a workaround), the value bound to `?` or returned by an
@@ -479,7 +505,7 @@ checked and that parses: `DISTINCT ON`, `ILIKE`, JSONB `->>`, `FOR UPDATE SKIP L
 hints, `WINDOW`, `TABLESAMPLE`, `ANY(ARRAY[...])`, `FROM ONLY`, MySQL `JSON_TABLE` in FROM and JOIN,
 `INSERT ... SET`, `REPLACE`, multi-table `UPDATE`/`DELETE`, `UPDATE ... FROM`, `DELETE ... USING`,
 `ON CONFLICT`, `ON DUPLICATE KEY UPDATE`, `LATERAL`. Statements that do not parse and are ignored by
-keyword: `SET`, `FLUSH`, `BEGIN`, `START TRANSACTION`.
+keyword when they read no rows: `SET`, `FLUSH`, `BEGIN`, `START TRANSACTION`.
 
 When we do find one, we report it upstream and record the report in `docs/upstream-issues/`.
 
@@ -550,8 +576,10 @@ golden corpus asserts them verbatim. `{ref}` is the alias, or the table name whe
 | `NO_WHERE` | `UPDATE of {table} has no WHERE clause and changes every row. Add a WHERE clause that selects only the intended rows.` (`DELETE from {table} ... removes every row.` for DELETE) |
 | `TAUTOLOGICAL_WHERE` | `UPDATE of {table} has a WHERE clause that is always true and changes every row. Replace it with a condition that selects only the intended rows.` (DELETE: `removes every row`) |
 | `UNSUPPORTED_STATEMENT` | `{STATEMENT} statements on {table} are not analysed yet. Rewrite the statement as INSERT or UPDATE, or suppress its origin with a reason.` |
+| `UNSUPPORTED_STATEMENT` in a clause that is not analysed | `{table} appears in a part of this statement that QueryFence does not analyse yet, so its tenant filter cannot be verified. Rewrite the statement to read it in FROM, a JOIN or a WHERE subquery, or suppress its origin with a reason.` |
 | `UNPARSEABLE` | `QueryFence could not parse this statement, so it cannot prove it safe. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.` |
 | `UNPARSEABLE` mentioning a protected table | `QueryFence could not parse this statement, so it cannot prove it safe. It mentions {table}, which stays unverified here: a missing filter on that table would go unnoticed. Report the SQL to QueryFence, or set onUnparseable: REPORT to only report it.` |
+| `UNPARSEABLE` after a failed analysis | The two `UNPARSEABLE` templates above with `could not analyse` in place of `could not parse`. |
 
 For `AMBIGUOUS_COLUMN`, `{tables}` lists the unfenced occurrences of the block as
 `table (alias)`, `{ref}` is the first of them, and `table`/`alias` are `null`.

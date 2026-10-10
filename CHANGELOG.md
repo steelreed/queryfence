@@ -26,7 +26,22 @@ class, method and line that produced the query.
   `UNPARSEABLE`. Every message states the problem **and** the fix.
 - Fail closed: SQL that does not parse, and statement types not analysed yet, are violations.
   Statements that can neither read nor write rows (`SET`, `SHOW`, `FLUSH`, DDL, `CALL`) are ignored
-  when they do not parse, because test fixtures run them all the time.
+  when they do not parse, because test fixtures run them all the time — but only when they use no
+  keyword that reads or writes rows, so `SET x = (SELECT ...)` or `COPY (SELECT ...)` stays reported,
+  and `COPY`, `DO`, `EXECUTE`, `EXPLAIN` and `PREPARE` are never ignored by keyword.
+- A multi-statement string that does not parse as a whole is split on its top-level semicolons and
+  every statement is checked, so an ignorable first statement (`SET search_path TO app; ...`) cannot
+  hide the ones after it.
+- Every occurrence of a protected table is checked, in any clause: subqueries in `LIMIT`, `OFFSET`,
+  `FETCH`, `DISTINCT ON`, `WINDOW`, `CONNECT BY`, `RETURNING`, MySQL `INSERT ... SET` and
+  `SET @x = (...)` are analysed, `TABLE t` is a read of `t`, and `CREATE TABLE ... AS SELECT`,
+  `CREATE MATERIALIZED VIEW` and `EXPLAIN ANALYZE` are checked through the query they run. A
+  protected table in a place the engine does not walk (a table function argument, an upsert conflict
+  branch) is reported as `UNSUPPORTED_STATEMENT` instead of being skipped, and `MERGE` is reported
+  for every protected table it names — target, `USING` source or subquery.
+- The engine never throws on a statement: integer literals beyond the range of a `long` are handled,
+  and an unexpected failure while analysing a statement is reported as `UNPARSEABLE` ("could not
+  analyse") under `onUnparseable`, never as an exception out of `SqlChecker.check`.
 - `onUnparseable` governs `UNPARSEABLE` findings and nothing else, independently of `mode`:
   `mode: FAIL` with `onUnparseable: REPORT` fails the build on a leak while only recording the
   statements the parser could not read. The decision is per finding (`Policy.modeFor(code)`).
@@ -115,7 +130,7 @@ class, method and line that produced the query.
 
 **Testing**
 
-- 205 golden corpus cases (SQL, policy, expected violations with their exact messages), a
+- 260 golden corpus cases (SQL, policy, expected violations with their exact messages), a
   metamorphic suite that weakens every passing case five ways and requires a violation, and PIT
   mutation testing at 88% threshold.
 - Testcontainers matrix {Hibernate, MyBatis, JdbcTemplate} × {MySQL 8.4, Postgres 17} on

@@ -99,8 +99,9 @@ final class Expressions {
     if (u instanceof BooleanValue b) {
       return b.getValue();
     }
+    // LongValue.getValue() throws beyond the range of a long, which SQL literals may exceed.
     if (u instanceof LongValue l) {
-      return l.getValue() != 0;
+      return l.getBigIntegerValue().signum() != 0;
     }
     if (u instanceof Column c && c.getTable() == null) {
       return "true".equalsIgnoreCase(c.getColumnName());
@@ -130,7 +131,7 @@ final class Expressions {
     Expression l = unwrap(left);
     Expression r = unwrap(right);
     if (l instanceof LongValue a && r instanceof LongValue b) {
-      return a.getValue() == b.getValue();
+      return a.getBigIntegerValue().equals(b.getBigIntegerValue());
     }
     if (l instanceof DoubleValue a && r instanceof DoubleValue b) {
       return a.getValue() == b.getValue();
