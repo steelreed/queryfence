@@ -20,7 +20,7 @@ Hibernate `@TenantId`/filters, MyBatis-Plus tenant interceptor). It complements 
 ## Brand and coordinates
 
 - Umbrella brand: **Steelreed** (a reed bends in the storm and does not break; tagline:
-  *Backend tools that bend, not break.*). Formerly Trestack, renamed before 0.1.0.
+  *Open-source tools for the parts of your backend nobody is watching.*). Formerly Trestack, renamed before 0.1.0.
 - GitHub: `github.com/steelreed/queryfence`
 - Maven groupId: `com.steelreed`, a namespace verified on Central through the `steelreed.com` domain
 - Java packages: `com.steelreed.queryfence.*`
