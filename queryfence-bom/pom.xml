@@ -42,4 +42,43 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <plugins>
+      <!-- The published BOM must manage QueryFence artifacts only. Without flattening it would
+           inherit queryfence-parent's dependencyManagement and pin Spring, JUnit, JDBC drivers and
+           Testcontainers in every build that imports it. bom mode drops the parent and keeps the
+           dependencyManagement exactly as declared here. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>${flatten-plugin.version}</version>
+        <configuration>
+          <flattenMode>bom</flattenMode>
+          <updatePomFile>true</updatePomFile>
+          <outputDirectory>${project.build.directory}</outputDirectory>
+          <pomElements>
+            <properties>remove</properties>
+            <repositories>remove</repositories>
+          </pomElements>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+            <phase>process-resources</phase>
+          </execution>
+          <execution>
+            <id>flatten-clean</id>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <phase>clean</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
