@@ -10,10 +10,14 @@
 </p>
 
 <p align="center">
+  <a href="https://central.sonatype.com/artifact/com.steelreed/queryfence-spring-test"><img src="https://img.shields.io/maven-central/v/com.steelreed/queryfence-spring-test?label=Maven%20Central&color=0A0A0A" alt="Maven Central"></a>
   <a href="https://github.com/steelreed/queryfence/actions/workflows/ci.yml"><img src="https://github.com/steelreed/queryfence/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://docs.steelreed.com/"><img src="https://img.shields.io/badge/docs-docs.steelreed.com-2B72C2.svg" alt="Documentation"></a>
-  <a href="https://steelreed.com/queryfence/"><img src="https://img.shields.io/badge/website-steelreed.com-0B1D33.svg" alt="Website"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-0A0A0A.svg" alt="License"></a>
+  <a href="https://docs.steelreed.com/"><img src="https://img.shields.io/badge/docs-docs.steelreed.com-0A0A0A.svg" alt="Documentation"></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/build-failure.png" width="860" alt="A Maven build failing because InvoiceService.java line 20 runs a query on the invoice table without a tenant_id filter">
 </p>
 
 > [!NOTE]
