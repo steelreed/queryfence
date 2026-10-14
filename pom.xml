@@ -66,7 +66,7 @@
     <spring.version>6.2.19</spring.version>
     <spring-boot.version>3.5.9</spring-boot.version>
     <testcontainers.version>1.21.4</testcontainers.version>
-    <mybatis-spring-boot.version>3.0.5</mybatis-spring-boot.version>
+    <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
     <mysql-connector.version>26.7.0</mysql-connector.version>
     <postgresql.version>42.7.13</postgresql.version>
     <!-- The oldest JUnit we support (Spring Boot 3.3). Building against the floor makes reaching
